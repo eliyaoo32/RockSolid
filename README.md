@@ -78,7 +78,7 @@ Before a feature is built, the agent and the owner discuss it and write down wha
 
 * **Template:** [`docs/FEATURE_TEMPLATE.md`](docs/FEATURE_TEMPLATE.md)
 * **Location:** `docs/<NNN>_FEATURES_<FEATURE_NAME_UPPER_CASE>.md` (e.g., `docs/001_FEATURES_USER_AUTHENTICATION.md`)
-* **Approval:** implementation starts only after the owner approves the blueprint.
+* **Collaboration:** the blueprint is written together by a human engineer and an AI agent.
 * **Contracts:** the feature's `.proto` files are added in the same pull request as the blueprint.
 * **Size:** at most 1,500 lines. A bigger feature is split into smaller features.
 
@@ -98,9 +98,11 @@ Before a feature is built, the agent and the owner discuss it and write down wha
 
 * Shadcn - It's has most of the components we will need, very good for building beatiful applications, agents work with it well.
 
-## AI Skills
+* Copier - Library and command-line utility for rendering projects templates. [TODO: check if i really want to use it] 
 
-The skills should be available for the following harnesses:
+## AI Skills and Instructions
+
+The skills and instructions should be available for the following harnesses:
 1. Claude Code
 2. Antigravity
 3. Pi

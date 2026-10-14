@@ -1,8 +1,8 @@
 # <Feature Name>
 
-> **How to use this template.** Discuss the feature with the owner until every question has an answer, then write the document once. Copy this file to `docs/<NNN>_FEATURES_<FEATURE_NAME_UPPER_CASE>.md`, keep its `##` headings exactly as they are, fill in each `<…>`, and delete every `>` note. The document stays under 1,500 lines. A feature that needs more becomes two features.
+> **How to use this template.** Discuss the feature with the owner until every question has an answer, then write the document once. Copy this file to `docs/<NNN>_FEATURES_<FEATURE_NAME_UPPER_CASE>.md`, keep its `##` headings exactly as they are, and fill in each `<…>`. Every line that starts with `>`, like this one, is guidance for the writer: delete all of them, so the finished document holds none. The document stays under 1,500 lines. A feature that needs more becomes two features.
 >
-> **Left out.** File paths, code, request and response fields, and test cases. The project structure and code guidelines tell the agent where code goes. The `.proto` contracts hold the API and event fields, and they are added in the same pull request as this document. The tests cover every case, and only an edge case the owner decides appears here, as one Decisions row.
+> **Left out.** File paths, code, request and response fields, and test cases. How to implement and develop the feature, including where code goes, comes from the project structure and the guidelines in `AGENTS.md`, not from this document. The `.proto` contracts hold the API and event fields, and they are added in the same pull request as this document. The tests cover every case, and only an edge case the owner decides appears here, as one Decisions row.
 
 **Submitted:** <YYYY-MM-DD> · **Status:** Draft · **Wireframe:** <the approved wireframe screens this feature changes, or "None">
 
@@ -10,7 +10,7 @@
 
 ## Summary
 
-> At most five sentences on what the feature does, for whom, and why. Then one example with real names and values.
+> At most five sentences on what the feature does, for whom, and why. Then one or more examples with real names and values, one line each. Add another example only when it shows something the first one does not.
 
 <…>
 
@@ -33,12 +33,12 @@
 
 ## Components
 
-> One high-level diagram of who talks to whom, covering the components this feature adds or changes and the ones they talk to. Solid arrows are synchronous calls, and dotted arrows are domain events. Then one row for each component the feature adds or changes. Tier is Module, Lib, Executable, Deployable, or Screen. A screen is named by its URL.
+> One high-level diagram of who talks to whom, covering the components this feature adds or changes and the ones they talk to. Solid arrows are synchronous calls, and dotted arrows are domain events. Every arrow has a label that says what it carries, such as the operation called or the event name. Then one row for each component the feature adds or changes. Tier is Module, Lib, Executable, Deployable, or Screen. A screen is named by its URL.
 
 ```mermaid
 flowchart LR
-    UI[Web UI] --> API[Contacts API]
-    Scheduler[Reminders scheduler] --> API
+    UI[Web UI] -->|List contacts| API[Contacts API]
+    Scheduler[Reminders scheduler] -->|Get contact phone| API
     API -.ContactCreated.-> Listener[Reminders listener]
 ```
 
