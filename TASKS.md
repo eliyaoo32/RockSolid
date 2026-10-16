@@ -11,6 +11,7 @@
     - [ ] Pin the Python version and lock dependencies
     - [ ] Add a Pants verify alias for all goals
     - [ ] Write Pants visibility rules for the tiers
+    - [ ] Forbid ORM imports in module domain code
     - [ ] Add mutation testing for domain code
     - [ ] Port blueprint docs checker from EasyTivuch
     - [ ] Add GitHub Actions workflow running verify
@@ -26,6 +27,12 @@
     - [ ] Add Postgres connection pool to libs/infra
     - [ ] Add database migrations per module
     - [ ] Give each module its own database schema
+
+- [ ] Filtering
+    - [ ] Wrap odata-query behind a libs/infra interface
+    - [ ] Map filterable API paths to SQL expressions
+    - [ ] Validate filters for syntax, paths, and types
+    - [ ] Write the filtering syntax agent skill
 
 - [ ] Executable runtimes in libs/infra
     - [ ] Build the ConnectRPC service runtime
@@ -73,11 +80,14 @@
 
 - [ ] AI instructions and skills (for Claude Code, Antigravity, Pi)
     - [ ] Write AGENTS.md with structure and guidelines
+    - [ ] Port harness consistency checker from EasyTivuch
     - [ ] Add a skill for writing blueprints
+    - [ ] Add an API design skill (AIPs and Buf)
     - [ ] Install the Ponytail skill
     - [ ] Install the shadcn skill
     - [ ] Install the ui-ux-pro-max skill
     - [ ] Install the caveman skill
+    - [ ] Find a skill for Domain Driven Design.
 
 - [ ] Project template
     - [ ] Decide whether to use Copier

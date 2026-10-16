@@ -28,7 +28,7 @@ Where the guidelines, the process and the structure is defined well for building
 * **Tactical Building Blocks:** Code is structured using explicit DDD constructs: Entities, Value Objects, Aggregates, Domain Services, Repositories, and Domain Events.
 * **Identity vs. Value:** Clearly separate entities defined by persistent identity from immutable value objects defined solely by their attributes.
 * **Consistency Boundaries:** Aggregates group related entities and value objects to enforce business rules and invariants.
-* **Repository Inversion:** Repository interfaces (ports) belong strictly to the domain layer; all database drivers, ORMs, and persistence mechanisms belong to infrastructure adapters.
+* **Repository Inversion:** Repository interfaces (ports) belong strictly to the domain layer; all database drivers, ORMs, and persistence mechanisms belong to the repository implementations.
 
 ### Multi-Layered & Trust-Verified Testing
 
@@ -86,6 +86,24 @@ Before a feature is built, the agent and the owner discuss it and write down wha
 
 ## Backend Framework
 
+### Modules
+
+Every business module has the same layout:
+
+```
+modules/contacts/
+├── domain/         # entities, value objects, aggregates, domain services, repository interfaces, domain events
+├── services/       # application services: the module's use cases and its public interface
+├── repositories/   # repository implementations and their database tables
+└── migrations/     # the module's own database schema
+```
+
+* **Domain models are always valid.** Value objects are immutable, and an entity rejects any creation or change that breaks its rules. The domain knows nothing about the database.
+* **Domain services** hold business logic that spans several entities and does no I/O. **Application services** load aggregates through repositories, call the domain, save the result, and publish events.
+* **Repositories:** the domain declares what it needs from storage, and `repositories/` implements it. A repository loads and saves whole aggregates.
+* **Aggregates reference each other by ID**, never through ORM relationships.
+* **Only executables import a module**, and only its `services/`.
+
 ### Executables
 
 Every executable is one of these five types:
@@ -126,6 +144,20 @@ Agents are plain Pydantic AI agents. The framework adds common tools, agent skil
 * **RPC agent skill:** Uses the `.proto` contracts. It shows the agent the available services, methods, and parameters, and how to call them with `APICall`.
 * **Evals:** every agent has a `pydantic-evals` suite from day one.
 
+### API Design
+
+AIPs define what the API means, and Buf defines how the protos look. Where they overlap, Buf wins, because it is enforced.
+
+* **Semantics follow a subset of [Google AIPs](https://google.aip.dev):** resource-oriented design, standard methods, standard fields and states, pagination, partial updates, soft delete, optimistic concurrency, idempotent requests, and consistent errors. Long-running operations, batch methods, and similar heavy patterns are left out. The API design skill lists the exact AIPs.
+* **Form follows the [Buf style guide](https://buf.build/docs/best-practices/style-guide)**, enforced by the verification command.
+* **Contracts never break existing clients.** Breaking changes fail the verification command.
+
+#### Filtering
+
+* **One expressive syntax:** List methods accept filters in [OData](https://docs.oasis-open.org/odata/odata/v4.01/odata-v4.01-part2-url-conventions.html#sec_SystemQueryOptionfilter) syntax, such as `display_name eq 'Avi'`, and the framework turns them into database queries.
+* **Explicitly filterable:** each resource declares which fields can be filtered and what each one means in the database. API names may differ from database names. Anything not declared cannot be filtered.
+* **Validated before it runs:** an invalid filter is rejected. Agents get an error that tells them how to fix it, and a skill teaches them the syntax.
+
 ## Tech Stack
 
 * Pantsbuild - build system that analyzes fine-grained code dependencies to execute caching, linting, testing, and packaging hermetically at scale (Better than Bazel).
@@ -137,6 +169,10 @@ Agents are plain Pydantic AI agents. The framework adds common tools, agent skil
 * Frontend in React + Vite - No need for frontend server since the expectation is that the frontend will be simple and without much of business-logic, everything should be done on the backend and the frontend only display data from backend or send actions to the backend.
 
 * Pydantic AI - Framework for building AI agents, with `pydantic-evals` for measuring their quality.
+
+* Pydantic - Domain models with built-in validation and strict typing.
+
+* SQLModel - ORM for the database tables. Built on Pydantic, like the domain models.
 
 * Firebase authentication - Integrate very easily with the AI, a lot of authentications features are available out of the box, the backend can easily verify the auth JWT from Firebase admin.
 
@@ -160,3 +196,11 @@ The boilerplate will include the following skills:
 * ui-ux-pro-max - Has many UI UX examples and can be helpful to find what's a good way to create UI/UX.
 
 * caveman - AI talks too much, let's simplify it.
+
+### Harness Consistency Check
+
+Every harness must read the same instructions, skills, and subagents. A checker in the verification command fails when they drift apart:
+
+* `AGENTS.md` and `CLAUDE.md` are identical.
+* `.agents/skills/` and `.claude/skills/` hold the same files with the same content.
+* Every subagent exists in both `.agents/agents/<name>/agent.md` and `.claude/agents/<name>.md`, with the same prompt and front matter. Only the fields each harness defines for itself (`tools`, `subagent`) may differ.
