@@ -158,6 +158,14 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 * **Explicitly filterable:** each resource declares which fields can be filtered and what each one means in the database. API names may differ from database names. Anything not declared cannot be filtered.
 * **Validated before it runs:** an invalid filter is rejected. Agents get an error that tells them how to fix it, and a skill teaches them the syntax.
 
+## Testing
+
+* **Three levels:** unit tests for domain code, component tests for one executable through its contract, and E2E tests for the whole system through the UI.
+* **Tests read as scenarios.** Drivers hide how each step is done, so a test shows only what happens.
+* **Every external dependency is faked through injection**, using the same bootstrapper as production. No test reaches a real third party.
+* **Always tested:** permissions, tenant isolation, full recovery from every failure, and crash recovery.
+* **100% coverage, and mutation testing on domain code**, so tests catch real regressions.
+
 ## Tech Stack
 
 * Pantsbuild - build system that analyzes fine-grained code dependencies to execute caching, linting, testing, and packaging hermetically at scale (Better than Bazel).
@@ -201,6 +209,6 @@ The boilerplate will include the following skills:
 
 Every harness must read the same instructions, skills, and subagents. A checker in the verification command fails when they drift apart:
 
-* `AGENTS.md` and `CLAUDE.md` are identical.
-* `.agents/skills/` and `.claude/skills/` hold the same files with the same content.
+* `CLAUDE.md` is a symbolic link to `AGENTS.md`.
+* `.claude/skills` is a symbolic link to `.agents/skills`, which holds the real skill files.
 * Every subagent exists in both `.agents/agents/<name>/agent.md` and `.claude/agents/<name>.md`, with the same prompt and front matter. Only the fields each harness defines for itself (`tools`, `subagent`) may differ.

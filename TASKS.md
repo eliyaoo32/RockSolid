@@ -70,9 +70,19 @@
     - [ ] Choose a frontend AG-UI client library
     - [ ] Connect the frontend to agents over AG-UI
 
-- [ ] Testing
-    - [ ] Run integration tests against ephemeral Postgres
-    - [ ] Set up end-to-end tests with Playwright
+- [ ] Testing infra
+    - [ ] Run ephemeral Postgres in tests with testcontainers
+    - [ ] Boot executables in tests with injected fakes
+    - [ ] Build a fake in-process RPC service
+    - [ ] Replay recorded third-party HTTP responses
+    - [ ] Build fake third-party servers for E2E
+    - [ ] Build a fake Firebase token verifier
+    - [ ] Run the Firebase Auth emulator in E2E
+    - [ ] Select the test LLM through an environment variable
+    - [ ] Add an injectable clock
+    - [ ] Add an eventually helper for async effects
+    - [ ] Restrict libs/testing to test code
+    - [ ] Set up the E2E package with Playwright
 
 - [ ] Contacts example
     - [ ] Build Contacts CRUD across all tiers
@@ -83,6 +93,7 @@
     - [ ] Port harness consistency checker from EasyTivuch
     - [ ] Add a skill for writing blueprints
     - [ ] Add an API design skill (AIPs and Buf)
+    - [ ] Link .claude/skills to .agents/skills
     - [ ] Install the Ponytail skill
     - [ ] Install the shadcn skill
     - [ ] Install the ui-ux-pro-max skill
