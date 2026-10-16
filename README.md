@@ -54,7 +54,7 @@ Where the guidelines, the process and the structure is defined well for building
 
 * **Strict 4-Tier Architecture:** The codebase is partitioned into Business Modules (`modules/`), Infrastructure Libraries (`libs/`), Executable Elements (`executables/`), and Deployables (`deployables/`).
 * **Inert Libraries Core:** Business Modules (`modules/`) hold pure domain and application logic; Infrastructure Libraries (`libs/`) provide shared, cross-cutting technical capabilities. Neither runs on its own.
-* **Executable Composition:** Executable Elements (`executables/`) provide concrete runtime drivers (e.g., ConnectRPC API, Cron scheduler, Events listener) by importing from `modules/` and `libs/`.
+* **Executable Composition:** Executable Elements (`executables/`) provide concrete runtime drivers (e.g., ConnectRPC API, Cron scheduler, Events listener, AI agent) by importing from `modules/` and `libs/`.
 * **Autonomous Deployables:** A Deployable Element (`deployables/`) is a final, standalone runnable unit (e.g., a Docker image or PEX binary) that composes one or more Executable Elements into a single operational package.
 
 ### Single-Command Deterministic Verification Gate
@@ -84,6 +84,48 @@ Before a feature is built, the agent and the owner discuss it and write down wha
 
 # Framework
 
+## Backend Framework
+
+### Executables
+
+Every executable is one of these five types:
+
+| Executable type | Role |
+|---|---|
+| **RPC Service** | Serves ConnectRPC requests and returns a response. |
+| **Cron Scheduler** | Runs jobs at fixed times or intervals. |
+| **Tasks Consumer** | Takes commands from a queue and runs each one exactly once, with retries. |
+| **Domain-Events Listener** | Reacts to domain events: facts that already happened in some domain. An event can have any number of listeners, and the publisher does not know them. |
+| **AI Agent** | Runs a Pydantic AI agent that users talk to. |
+
+### Deployables
+
+A deployable is a runtime bootstrapper: it lists the executables it runs, creates their infra, and starts them.
+
+[TODO: define how the bootstrapper works in a deployable.]
+
+### Dependency Injection
+
+* Only the deployable creates infra: database pools, HTTP clients, and RPC clients. It passes the instances down to its executables.
+* The deployable reads the URIs of databases and of other deployables from environment variables. No other code reads configuration.
+* All executables in a deployable share one database pool.
+* A client calling a service in the same deployable goes in-process (httpx ASGI transport) instead of over the network.
+
+### `libs/infra`
+
+* Holds the runtime machinery the executables and deployables use, such as the domain-events listener registry. An executable imports it and registers its handlers.
+* It is organized by who may import it: `libs/infra/executables/` is imported only by executables, and `libs/infra/deployables/` only by deployables.
+* Pants visibility rules enforce this. Importing from the wrong tier fails the verification command.
+
+### AI Agents
+
+Agents are plain Pydantic AI agents. The framework adds common tools, agent skills, and evals on top of Pydantic AI, without wrapping it.
+
+* **Exposure:** in production, the deployable exposes each agent over the AG-UI protocol. In dev mode, it can also expose each agent through [Pydantic AI's web chat](https://pydantic.dev/docs/ai/guides/web/), which is never exposed in production.
+* **`APICall(service, method, params)` tool:** lets an agent call any ConnectRPC method with the signed-in user's credentials, so the agent has exactly the user's permissions. Agents reach modules only through RPC, never through module code directly.
+* **RPC agent skill:** Uses the `.proto` contracts. It shows the agent the available services, methods, and parameters, and how to call them with `APICall`.
+* **Evals:** every agent has a `pydantic-evals` suite from day one.
+
 ## Tech Stack
 
 * Pantsbuild - build system that analyzes fine-grained code dependencies to execute caching, linting, testing, and packaging hermetically at scale (Better than Bazel).
@@ -93,6 +135,8 @@ Before a feature is built, the agent and the owner discuss it and write down wha
 * Python in Backend - Everything that we will ever need for the backend (Specificly AI features), will be available in this language.
 
 * Frontend in React + Vite - No need for frontend server since the expectation is that the frontend will be simple and without much of business-logic, everything should be done on the backend and the frontend only display data from backend or send actions to the backend.
+
+* Pydantic AI - Framework for building AI agents, with `pydantic-evals` for measuring their quality.
 
 * Firebase authentication - Integrate very easily with the AI, a lot of authentications features are available out of the box, the backend can easily verify the auth JWT from Firebase admin.
 
