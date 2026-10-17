@@ -25,12 +25,14 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from libs.infra.cron.cron import Wait, wait_or_stop
 from libs.infra.logs.json_logs import request_id
+from libs.infra.retry.retry import Exponential, NonRetryableError, RetryStrategy
 
 logger = logging.getLogger(__name__)
 
 MIGRATIONS = Path(__file__).parent / "migrations"
 CHANNEL = "domain_events"
-MAX_ATTEMPTS = 5
+# How a subscription retries a failing handler unless it chooses its own strategy.
+DEFAULT_RETRY = Exponential()
 # When no notification arrives, a subscription still checks the log this often.
 POLL_SECONDS = 30.0
 
@@ -47,11 +49,14 @@ class Subscription[E: BaseModel]:
     """Calls `handle` with every event of `event` published after the subscription first ran.
 
     `name` keeps the subscription's place in the log, so it must stay the same across releases.
+    `retry` decides how a failing handler is retried before its event is parked; a handler that
+    raises NonRetryableError has its event parked at once.
     """
 
     name: str
     event: type[E]
     handle: Callable[[E], Coroutine[Any, Any, None]]
+    retry: RetryStrategy = DEFAULT_RETRY
 
     def __post_init__(self) -> None:
         event_type_of(self.event)
@@ -100,9 +105,9 @@ def _upgrade(connection: Connection) -> None:
 class PostgresEventBus:
     """Delivers events from the log in Postgres, at least once, in the order they were published.
 
-    A handler that fails is retried with backoff. After MAX_ATTEMPTS, the event is parked in
-    `events.parked` and the subscription moves on. Only one copy of a deployable delivers each
-    subscription at a time.
+    A handler that fails is retried as its subscription's retry strategy says. When the strategy
+    stops, or the handler raises NonRetryableError, the event is parked in `events.parked` and
+    the subscription moves on. Only one copy of a deployable delivers each subscription at a time.
     """
 
     def __init__(
@@ -201,8 +206,15 @@ class PostgresEventBus:
                 await subscription.handle(subscription.event.model_validate_json(event.payload))
             except Exception as error:
                 attempts = (state.attempts if state.failed_event_id == event.id else 0) + 1
-                await self._record_failure(connection, subscription, event.id, attempts, error)
-                return 0 if attempts >= MAX_ATTEMPTS else 2.0**attempts
+                delay = (
+                    None
+                    if isinstance(error, NonRetryableError)
+                    else subscription.retry.delay_after(attempts)
+                )
+                await self._record_failure(
+                    connection, subscription, event.id, attempts, delay, error
+                )
+                return delay or 0
             finally:
                 request_id.reset(token)
             await self._advance(connection, subscription, event.id)
@@ -214,9 +226,10 @@ class PostgresEventBus:
         subscription: Subscription[Any],
         event_id: int,
         attempts: int,
+        delay: float | None,
         error: Exception,
     ) -> None:
-        if attempts < MAX_ATTEMPTS:
+        if delay is not None:
             logger.warning(
                 "event %d failed for subscription %s, attempt %d",
                 event_id,
@@ -233,7 +246,7 @@ class PostgresEventBus:
                     "name": subscription.name,
                     "event_id": event_id,
                     "attempts": attempts,
-                    "retry_at": self._now() + timedelta(seconds=2.0**attempts),
+                    "retry_at": self._now() + timedelta(seconds=delay),
                 },
             )
             return

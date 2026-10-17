@@ -16,6 +16,7 @@ from libs.infra.events.events import (
     migrate_event_log,
 )
 from libs.infra.logs.json_logs import request_id
+from libs.infra.retry.retry import Constant, NonRetryableError
 from libs.testing.time import FakeTime, eventually
 
 START = datetime(2026, 10, 17, 9, 0, tzinfo=UTC)
@@ -60,6 +61,10 @@ class Handled:
 
     async def wave(self, event: Waved) -> None:
         self.waves.append(event.hand)
+
+    async def wave_once(self, event: Waved) -> None:
+        self.attempts += 1
+        raise NonRetryableError(f"nobody to wave {event.hand} to")
 
 
 class Bus:
@@ -245,3 +250,34 @@ async def test_publishing_no_events_writes_nothing(bus: Bus) -> None:
     await bus.publish()
 
     assert await bus.rows("SELECT id FROM events.log") == []
+
+
+async def test_retries_as_the_subscriptions_strategy_says_then_parks(bus: Bus) -> None:
+    subscriptions = [
+        Subscription("greet", Greeted, bus.handled.greet, retry=Constant(30, attempts=2))
+    ]
+    await started(bus, subscriptions)
+    bus.handled.failing.add("Avi")
+
+    await bus.publish(Greeted(name="Avi"), Greeted(name="Noa"))
+    await eventually(lambda: bus.handled.attempts == 1)
+    bus.time.advance(timedelta(seconds=29))
+    await asyncio.sleep(0.05)
+    assert bus.handled.attempts == 1, "no retry before the strategy's 30 seconds"
+    bus.time.advance(timedelta(seconds=1))
+
+    await eventually(lambda: bus.handled.greetings == ["Noa"])
+    assert bus.handled.attempts == 3, "two attempts for Avi, then Noa"
+    assert len(await bus.rows("SELECT event_id FROM events.parked")) == 1
+
+
+async def test_parks_at_once_when_the_handler_says_retrying_cannot_help(bus: Bus) -> None:
+    await started(bus, [Subscription("wave", Waved, bus.handled.wave_once)])
+
+    await bus.publish(Waved(hand="left"))
+
+    async def parked() -> bool:
+        return len(await bus.rows("SELECT event_id FROM events.parked")) == 1
+
+    await eventually(parked)
+    assert bus.handled.attempts == 1, "never retried"
