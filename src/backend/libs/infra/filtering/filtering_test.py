@@ -56,9 +56,9 @@ schema = FilterSchema(
 
 
 @pytest.fixture
-async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
-    engine = create_async_engine(database_url)
-    async with engine.begin() as connection:
+async def database(database_url: str) -> AsyncIterator[AsyncEngine]:
+    database = create_async_engine(database_url)
+    async with database.begin() as connection:
         await connection.run_sync(metadata.drop_all)
         await connection.run_sync(metadata.create_all)
         await connection.execute(
@@ -97,18 +97,18 @@ async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
             cities.insert(),
             [{"person_id": AVI, "name": "Haifa"}, {"person_id": NOA, "name": "Tel Aviv"}],
         )
-    yield engine
-    await engine.dispose()
+    yield database
+    await database.dispose()
 
 
-async def matching(engine: AsyncEngine, filter: str) -> list[str]:
+async def matching(database: AsyncEngine, filter: str) -> list[str]:
     query = (
         sa.select(people.c.first_name)
         .select_from(people.outerjoin(cities, cities.c.person_id == people.c.id))
         .where(schema.where(filter))
         .order_by(people.c.first_name)
     )
-    async with engine.connect() as connection:
+    async with database.connect() as connection:
         return list((await connection.execute(query)).scalars())
 
 
@@ -141,9 +141,9 @@ async def matching(engine: AsyncEngine, filter: str) -> list[str]:
     ],
 )
 async def test_turns_a_filter_into_a_query(
-    engine: AsyncEngine, filter: str, names: list[str]
+    database: AsyncEngine, filter: str, names: list[str]
 ) -> None:
-    assert await matching(engine, filter) == names
+    assert await matching(database, filter) == names
 
 
 @pytest.mark.parametrize(

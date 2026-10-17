@@ -15,12 +15,12 @@ from modules.clients.services.clients import ClientService
 MIGRATIONS = Path(__file__).parent.parent / "migrations"
 
 
-def create_client_service(engine: AsyncEngine, now: Callable[[], datetime]) -> ClientService:
-    return ClientService(PostgresClientRepository(engine), now)
+def create_client_service(database: AsyncEngine, now: Callable[[], datetime]) -> ClientService:
+    return ClientService(PostgresClientRepository(database), now)
 
 
-async def migrate_schema(engine: AsyncEngine) -> None:
-    async with engine.begin() as connection:
+async def migrate_schema(database: AsyncEngine) -> None:
+    async with database.begin() as connection:
         await connection.run_sync(_upgrade)
 
 

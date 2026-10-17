@@ -36,11 +36,11 @@ CLIENT_FILTERS = FilterSchema(
 
 
 class PostgresClientRepository:
-    def __init__(self, engine: AsyncEngine) -> None:
-        self._engine = engine
+    def __init__(self, database: AsyncEngine) -> None:
+        self._database = database
 
     async def get(self, owner_id: UserId, client_id: UUID) -> Client | None:
-        async with AsyncSession(self._engine) as session:
+        async with AsyncSession(self._database) as session:
             row = await session.get(ClientRow, client_id)
         if row is None or row.owner_id != owner_id:
             return None
@@ -55,7 +55,7 @@ class PostgresClientRepository:
         if after is not None:
             query = query.where(tuple_(col(ClientRow.create_time), col(ClientRow.id)) < after)
         query = query.order_by(col(ClientRow.create_time).desc(), col(ClientRow.id).desc())
-        async with AsyncSession(self._engine) as session:
+        async with AsyncSession(self._database) as session:
             rows = await session.exec(query.limit(limit))
             return [Client.model_validate(row, from_attributes=True) for row in rows]
 
@@ -63,11 +63,11 @@ class PostgresClientRepository:
         query = (
             select(func.count()).select_from(ClientRow).where(col(ClientRow.create_time) >= since)
         )
-        async with AsyncSession(self._engine) as session:
+        async with AsyncSession(self._database) as session:
             return (await session.exec(query)).one()
 
     async def save(self, client: Client) -> None:
-        async with AsyncSession(self._engine) as session:
+        async with AsyncSession(self._database) as session:
             await session.merge(ClientRow.model_validate(client, from_attributes=True))
             await session.commit()
 
@@ -75,7 +75,7 @@ class PostgresClientRepository:
         query = delete(ClientRow).where(
             col(ClientRow.id) == client_id, col(ClientRow.owner_id) == owner_id
         )
-        async with AsyncSession(self._engine) as session:
+        async with AsyncSession(self._database) as session:
             result = await session.exec(query)
             await session.commit()
         return result.rowcount == 1

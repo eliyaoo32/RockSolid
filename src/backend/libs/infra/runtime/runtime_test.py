@@ -28,8 +28,8 @@ from modules.users.services.setup import create_auth
 migrated: list[AsyncEngine] = []
 
 
-async def migrate_shared_schema(engine: AsyncEngine) -> None:
-    migrated.append(engine)
+async def migrate_shared_schema(database: AsyncEngine) -> None:
+    migrated.append(database)
 
 
 async def pong(scope: Scope, receive: Receive, send: Send) -> None:
