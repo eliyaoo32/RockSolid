@@ -1,23 +1,18 @@
-"""Boots the clients API through the runtime, on a real Postgres, with fake sign-in and clock."""
+"""Runs the clients API, with fake sign-in, through the runtime on a real Postgres."""
 
-import asyncio
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
 
 from clients.v1.clients_connect import ClientsServiceClient
 from executables.clients_api.clients_api import ClientsApiExecutable
 from executables.clients_api.tests.framework.driver import ClientsDriver
-from libs.infra.runtime.executables import Infra
-from libs.infra.runtime.runtime import Runtime
-from libs.testing.time import FakeTime
+from libs.testing.runtime import START, run_executables
 from modules.users.domain.user import User
 from modules.users.services.auth import Auth
 
-START = datetime(2026, 10, 17, 9, 0, tzinfo=UTC)
+__all__ = ["START", "driver"]
 
 
 class FakeUsers:
@@ -32,23 +27,10 @@ class FakeUsers:
 
 @pytest.fixture
 async def driver(database_url: str) -> AsyncIterator[ClientsDriver]:
-    database = create_async_engine(database_url)
-    clock = FakeTime(START)
-    runtime = Runtime(
-        [ClientsApiExecutable],
-        Infra(database, Auth(FakeUsers()), clock),
-        port=0,
-    )
-    await runtime.migrate()
-    async with database.begin() as connection:
-        await connection.execute(text("TRUNCATE clients.clients"))
-    stop = asyncio.Event()
-    serving = asyncio.create_task(runtime.serve(stop))
-    async with asyncio.timeout(10):
-        while runtime.port is None:
-            await asyncio.sleep(0.01)
-    async with ClientsServiceClient(f"http://127.0.0.1:{runtime.port}") as api:
-        yield ClientsDriver(api, clock)
-    stop.set()
-    await serving
-    await database.dispose()
+    async with run_executables(
+        [ClientsApiExecutable], database_url, auth=Auth(FakeUsers())
+    ) as running:
+        async with running.database.begin() as connection:
+            await connection.execute(text("TRUNCATE clients.clients"))
+        async with ClientsServiceClient(f"http://127.0.0.1:{running.port}") as api:
+            yield ClientsDriver(api, running.time)

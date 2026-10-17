@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel
 
 from modules.clients.domain.client import Client
+from modules.clients.domain.client_events import ClientCreated
 from modules.clients.repositories.client_repository import ClientRepository
 from modules.users.domain.user import UserId
 
@@ -78,7 +79,10 @@ class ClientService:
             create_time=now,
             update_time=now,
         )
-        await self._repository.save(client)
+        created = ClientCreated(
+            client_id=client.id, owner_id=client.owner_id, display_name=client.display_name
+        )
+        await self._repository.save(client, [created])
         return client
 
     async def update(self, owner_id: UserId, client_id: UUID, changes: ClientChanges) -> Client:

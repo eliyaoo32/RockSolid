@@ -6,7 +6,7 @@ hosted scheduler, would implement the same `CronRunner` interface, so executable
 
 import asyncio
 import logging
-from collections.abc import Awaitable, Callable, Coroutine, Sequence
+from collections.abc import Callable, Coroutine, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime
@@ -19,7 +19,7 @@ from libs.infra.logs.json_logs import request_id
 
 logger = logging.getLogger(__name__)
 
-type Wait = Callable[[float, asyncio.Event], Awaitable[None]]
+type Wait = Callable[[float, asyncio.Event], Coroutine[Any, Any, None]]
 
 
 class InvalidScheduleError(ValueError):

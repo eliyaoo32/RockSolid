@@ -1,17 +1,12 @@
-"""Boots the users API through the runtime, with fake sign-in."""
+"""Runs the users API, with fake sign-in, through the runtime."""
 
-import asyncio
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy.ext.asyncio import create_async_engine
 
 from executables.users_api.tests.framework.driver import UsersDriver
 from executables.users_api.users_api import UsersApiExecutable
-from libs.infra.runtime.executables import Infra
-from libs.infra.runtime.runtime import Runtime
-from libs.testing.time import FakeTime
+from libs.testing.runtime import run_executables
 from modules.users.domain.user import User
 from modules.users.services.auth import Auth
 from users.v1.users_connect import UsersServiceClient
@@ -28,21 +23,9 @@ class FakeUsers:
 
 
 @pytest.fixture
-async def driver() -> AsyncIterator[UsersDriver]:
-    # The users API stores nothing, so its engine never connects.
-    database = create_async_engine("postgresql+asyncpg://unused@localhost/unused")
-    runtime = Runtime(
-        [UsersApiExecutable],
-        Infra(database, Auth(FakeUsers()), FakeTime(datetime(2026, 10, 17, tzinfo=UTC))),
-        port=0,
-    )
-    stop = asyncio.Event()
-    serving = asyncio.create_task(runtime.serve(stop))
-    async with asyncio.timeout(10):
-        while runtime.port is None:
-            await asyncio.sleep(0.01)
-    async with UsersServiceClient(f"http://127.0.0.1:{runtime.port}") as api:
+async def driver(database_url: str) -> AsyncIterator[UsersDriver]:
+    async with (
+        run_executables([UsersApiExecutable], database_url, auth=Auth(FakeUsers())) as running,
+        UsersServiceClient(f"http://127.0.0.1:{running.port}") as api,
+    ):
         yield UsersDriver(api)
-    stop.set()
-    await serving
-    await database.dispose()
