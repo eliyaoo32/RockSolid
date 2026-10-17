@@ -1,19 +1,20 @@
 """Serves the clients ConnectRPC contract for signed-in users."""
 
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from clients.v1 import clients_pb as pb
 from clients.v1.clients_connect import ClientsService, ClientsServiceASGIApplication
 from connectrpc.code import Code
 from connectrpc.errors import ConnectError
+from connectrpc.interceptor import MetadataInterceptor
 from connectrpc.request import RequestContext
 from protobuf.wkt import Timestamp
 from pydantic import ValidationError
-from sqlalchemy.ext.asyncio import AsyncEngine
 
+from libs.infra.runtime.executables import RpcApplication, RpcServiceExecutable
 from modules.clients.domain.client import Client
 from modules.clients.services.clients import (
     ClientChanges,
@@ -28,16 +29,16 @@ NAME_PREFIX = "clients/"
 UPDATABLE_FIELDS = frozenset(ClientChanges.model_fields)
 
 
-def create_app(
-    engine: AsyncEngine, auth: Auth, now: Callable[[], datetime]
-) -> ClientsServiceASGIApplication:
-    return ClientsServiceASGIApplication(
-        ClientsApi(create_client_service(engine, now), auth), interceptors=[auth]
-    )
+class ClientsApiExecutable(RpcServiceExecutable):
+    """Serves the clients contract."""
 
+    migrations = (migrate_schema,)
 
-async def migrate(engine: AsyncEngine) -> None:
-    await migrate_schema(engine)
+    def application(self, interceptors: Sequence[MetadataInterceptor[Any]]) -> RpcApplication:
+        clients = create_client_service(self.infra.engine, self.infra.now)
+        return ClientsServiceASGIApplication(
+            ClientsApi(clients, self.infra.auth), interceptors=interceptors
+        )
 
 
 class ClientsApi(ClientsService):

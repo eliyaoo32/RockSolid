@@ -64,7 +64,7 @@ Where the guidelines, the process and the structure is defined well for building
 
 ## Product-building process
 
-1. Wireframe folder which is the source-of-truth of the application should look like. It doesn't suppose to have the business logic itself, but it must engage the feel and look of the application, both on mobile and desktop. It's a simple React app. When a new feature needs to be developed and it requires changes in the frontend, it must have first the changes in the wireframe and should be approved by the user.
+1. **Wireframe first.** `src/wireframe/` is a simple React app that shows how the product looks and feels on mobile and desktop, without business logic. A feature that changes the UI starts there: the agent maps the user's flow, designs it with the `ui-ux-pro-max` skill, records every decision in `src/wireframe/README.md`, and the owner approves it. The frontend developer designs the states the wireframe leaves out, such as empty lists and errors, and the owner approves them.
 
 2. Create a blueprint document for this feature, together with its `.proto` contracts, and get the owner's approval (see [Features Blueprint Document](#features-blueprint-document)).
 
@@ -116,16 +116,27 @@ Every executable is one of these five types:
 | **Domain-Events Listener** | Reacts to domain events: facts that already happened in some domain. An event can have any number of listeners, and the publisher does not know them. |
 | **AI Agent** | Runs a Pydantic AI agent that users talk to. |
 
+An executable is a class. The runtime knows two kinds:
+
+* **HTTP executables** (RPC services and AI agents) give the runtime their routes, which it mounts on the deployable's one HTTP server.
+* **Background executables** (cron schedulers, tasks consumers, and domain-events listeners) work outside HTTP. Their classes exist, but the runtime does not run them yet: each type gets its behavior with the first feature that needs it.
+
+Each executable type has its own base class under these two, which holds the wiring every executable of that type shares. `RpcServiceExecutable` mounts one ConnectRPC service and signs in every call. Each executable class names the module schemas it needs migrated, so the runtime migrates them without building it.
+
 ### Deployables
 
-A deployable is a runtime bootstrapper: it lists the executables it runs, creates their infra, and starts them.
+A deployable is a list of the executable classes it runs, in one process. The runtime in `src/libs/infra/runtime/` does the rest:
 
-[TODO: define how the bootstrapper works in a deployable.]
+* **Infra, once per process:** it reads the configuration from environment variables and builds the infra every executable shares.
+* **Two commands in one image:** `migrate` migrates the schemas of every module the executables use, once per release. `serve` starts all the executables.
+* **Health:** `/healthz` answers while the process runs, and `/readyz` answers when the database can be used.
+* **Logs:** every log line is one JSON object on stdout, tagged with the ID of the request it served. Each response carries its request ID in `X-Request-ID`.
+* **Graceful shutdown:** on SIGTERM, it stops taking new work, lets running work finish, and closes the pools.
 
 ### Dependency Injection
 
-* Only the deployable creates infra: database pools, HTTP clients, and RPC clients. It passes the instances down to its executables.
-* The deployable reads the URIs of databases and of other deployables from environment variables. No other code reads configuration.
+* Only the runtime creates infra: the database pool, the clock, and the sign-in service. The runtime builds each executable with it, and the executable takes only what it needs.
+* The runtime is the only code that reads configuration, from environment variables.
 * All executables in a deployable share one database pool.
 
 ### `src/libs/infra`
@@ -133,6 +144,7 @@ A deployable is a runtime bootstrapper: it lists the executables it runs, create
 * Holds the technical capabilities that belong to no business module, such as the database pool and the domain-events bus.
 * It is organized by capability: `src/libs/infra/<capability>/`, such as `db/` and `events/`. Each capability folder holds its interface, its provider implementations, and its transport hooks, such as interceptors.
 * A capability with business meaning is a module, not a lib. Signing users in belongs to the users module.
+* The runtime builds the users module's sign-in service, because every API needs the caller. It is the only lib that uses a module.
 
 ### AI Agents
 
@@ -162,7 +174,7 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 
 * **Three levels:** unit tests for domain code, component tests for one executable through its contract, and E2E tests for the whole system through the UI.
 * **Tests read as scenarios.** Drivers hide how each step is done, so a test shows only what happens.
-* **Every external dependency is faked through injection**, using the same bootstrapper as production. No test reaches a real third party.
+* **Every external dependency is faked through injection**, using the same runtime as production. No test reaches a real third party.
 * **Always tested:** permissions, tenant isolation, full recovery from every failure, and crash recovery.
 * **100% coverage with genuine assertions**, so tests catch real regressions.
 

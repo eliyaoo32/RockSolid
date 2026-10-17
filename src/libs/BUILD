@@ -1,0 +1,15 @@
+# Import rules for every lib, written once. A lib never uses a module, with one exception: the
+# runtime builds the users module's sign-in service, because every API needs the caller.
+__dependencies_rules__(
+    (
+        "/infra/runtime/**",
+        "./*",
+        "//src/libs/infra/logs/**",
+        "//src/libs/testing/**",
+        "//src/modules/users/services/**",
+        "//3rdparty/python#*",
+        "!*",
+    ),
+    ("/infra/**", "./*", "//3rdparty/python#*", "!*"),
+    ("/testing/**", "./*", "//3rdparty/python#*", "!*"),
+)

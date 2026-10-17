@@ -1,10 +1,10 @@
-# Import rules for every deployable: it wires executables and the module services they share.
+# Import rules for every deployable: it lists its executables and hands them to the runtime.
 __dependencies_rules__(
     (
         "*",
         "./**",
         "//src/executables/*/*.py",
-        "//src/modules/*/services/**",
+        "//src/libs/infra/**",
         "//3rdparty/python#*",
         "!*",
     ),

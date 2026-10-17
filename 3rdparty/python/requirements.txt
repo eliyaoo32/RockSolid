@@ -3,6 +3,7 @@ asyncpg
 connectrpc
 cryptography
 greenlet
+httpx
 protobuf-py
 pydantic-settings
 pydantic[email]
@@ -13,4 +14,4 @@ pytest-cov
 sqlalchemy[asyncio]
 sqlmodel
 testcontainers[postgres]
-uvicorn
+uvicorn[standard]

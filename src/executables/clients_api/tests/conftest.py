@@ -1,3 +1,4 @@
-from executables.clients_api.tests.framework.fixtures import database_url, driver
+from executables.clients_api.tests.framework.fixtures import driver
+from libs.testing.postgres import database_url
 
 __all__ = ["database_url", "driver"]

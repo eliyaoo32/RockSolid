@@ -2,6 +2,7 @@
 
 [tool.ruff]
 line-length = 100
+target-version = "py314"
 # Generated code is regenerated, never formatted or linted.
 extend-exclude = ["src/generated"]
 force-exclude = true

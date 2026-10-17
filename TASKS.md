@@ -56,10 +56,10 @@
 
 - [ ] Deployables
     - [x] Define how the bootstrapper works
-    - [ ] Build the generic deployable bootstrapper
+    - [x] Build the generic deployable bootstrapper
     - [x] Decide how deployables load and validate configuration
     - [x] Load deployable config from environment variables
-    - [ ] Handle graceful startup and shutdown
+    - [x] Handle graceful startup and shutdown
     - [x] Package each deployable as a Docker image
 
 - [ ] Authentication
@@ -99,9 +99,9 @@
     - [x] Add an API design skill (AIPs and Buf)
     - [x] Link .claude/skills to .agents/skills
     - [x] Install the Ponytail plugin
-    - [ ] Install the shadcn skill
-    - [ ] Install the ui-ux-pro-max skill
-    - [ ] Install the caveman skill
+    - [x] Install the shadcn skill
+    - [x] Install the ui-ux-pro-max skill
+    - [x] Install the caveman skill
     - [ ] Find a skill for Domain Driven Design.
 
 - [ ] Project template

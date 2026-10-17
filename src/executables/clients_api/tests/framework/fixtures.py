@@ -1,18 +1,18 @@
-"""Boots the clients API on a real Postgres, with fake sign-in and a fake clock."""
+"""Boots the clients API through the runtime, on a real Postgres, with fake sign-in and clock."""
 
 import asyncio
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 
 import pytest
-import uvicorn
 from clients.v1.clients_connect import ClientsServiceClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
-from testcontainers.postgres import PostgresContainer
 
-from executables.clients_api.clients_api import create_app, migrate
+from executables.clients_api.clients_api import ClientsApiExecutable
 from executables.clients_api.tests.framework.driver import ClientsDriver, FakeClock
+from libs.infra.runtime.executables import Infra
+from libs.infra.runtime.runtime import Runtime
 from modules.users.domain.user import User
 from modules.users.services.auth import Auth
 
@@ -29,34 +29,21 @@ class FakeUsers:
         return User(id=user_id, email=f"{user_id}@example.com", display_name=user_id)
 
 
-@pytest.fixture(scope="session")
-def database_url() -> Iterator[str]:
-    with PostgresContainer("postgres:18", driver="asyncpg") as postgres:
-        yield postgres.get_connection_url()
-
-
 @pytest.fixture
 async def driver(database_url: str) -> AsyncIterator[ClientsDriver]:
     engine = create_async_engine(database_url)
-    await migrate(engine)
+    clock = FakeClock(START)
+    runtime = Runtime([ClientsApiExecutable], Infra(engine, Auth(FakeUsers()), clock), port=0)
+    await runtime.migrate()
     async with engine.begin() as connection:
         await connection.execute(text("TRUNCATE clients.clients"))
-    clock = FakeClock(START)
-    server = uvicorn.Server(
-        uvicorn.Config(
-            create_app(engine, Auth(FakeUsers()), clock),
-            host="127.0.0.1",
-            port=0,
-            log_level="warning",
-        )
-    )
-    serving = asyncio.create_task(server.serve())
+    stop = asyncio.Event()
+    serving = asyncio.create_task(runtime.serve(stop))
     async with asyncio.timeout(10):
-        while not server.started:
+        while runtime.port is None:
             await asyncio.sleep(0.01)
-    port = server.servers[0].sockets[0].getsockname()[1]
-    async with ClientsServiceClient(f"http://127.0.0.1:{port}") as api:
+    async with ClientsServiceClient(f"http://127.0.0.1:{runtime.port}") as api:
         yield ClientsDriver(api, clock)
-    server.should_exit = True
+    stop.set()
     await serving
     await engine.dispose()

@@ -1,7 +1,4 @@
-python_sources(
-    # SQLAlchemy loads the driver named in the database URL at runtime.
-    dependencies=["3rdparty/python#asyncpg"],
-)
+python_sources()
 
 # The Linux platforms of the python:3.14-slim base image, captured with
 # `pex3 interpreter inspect --markers --tags` inside it.
