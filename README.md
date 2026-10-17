@@ -206,8 +206,12 @@ The skills and instructions should be available for the following harnesses:
 3. Pi
 
 
+The boilerplate will include the following plugins:
+* [Ponytail](https://github.com/DietrichGebert/ponytail) - Makes your AI agent think like the laziest senior dev in the room. The best code is the code you never wrote.
+  * Claude Code and Pi load it from the project settings (`.claude/settings.json` and `.pi/settings.json`).
+  * Antigravity has no project-level plugins, so each developer installs it once: `agy plugin install https://github.com/DietrichGebert/ponytail`.
+
 The boilerplate will include the following skills:
-* Ponytail - Makes your AI agent think like the laziest senior dev in the room. The best code is the code you never wrote.
 
 * shadcn - How to work good with this UI kit.
 

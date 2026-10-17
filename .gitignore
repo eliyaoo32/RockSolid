@@ -1,0 +1,6 @@
+# Pants workspace files
+/.pants.d/
+dist/
+
+# Pi plugin clones; .pi/settings.json declares them
+/.pi/git/

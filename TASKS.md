@@ -96,7 +96,7 @@
     - [ ] Add a skill for writing blueprints
     - [x] Add an API design skill (AIPs and Buf)
     - [x] Link .claude/skills to .agents/skills
-    - [ ] Install the Ponytail skill
+    - [x] Install the Ponytail plugin
     - [ ] Install the shadcn skill
     - [ ] Install the ui-ux-pro-max skill
     - [ ] Install the caveman skill
