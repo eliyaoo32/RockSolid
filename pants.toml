@@ -11,9 +11,9 @@ backend_packages = [
 ]
 
 [source]
-# Imports start at src/ (`modules.clients.domain.client`). Generated Python is its own root,
-# so it imports by proto package (`clients.v1`).
-root_patterns = ["/src", "/src/generated/python"]
+# Imports start at src/backend/ (`modules.clients.domain.client`). Generated Python is its own
+# root, so it imports by proto package (`clients.v1`).
+root_patterns = ["/src/backend", "/src/generated/python"]
 
 [python]
 interpreter_constraints = ["CPython==3.14.*"]

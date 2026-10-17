@@ -5,8 +5,6 @@ from contextlib import contextmanager
 from typing import Any
 from uuid import UUID
 
-from clients.v1 import clients_pb as pb
-from clients.v1.clients_connect import ClientsService, ClientsServiceASGIApplication
 from connectrpc.code import Code
 from connectrpc.errors import ConnectError
 from connectrpc.interceptor import MetadataInterceptor
@@ -14,6 +12,8 @@ from connectrpc.request import RequestContext
 from protobuf.wkt import Timestamp
 from pydantic import ValidationError
 
+from clients.v1 import clients_pb as pb
+from clients.v1.clients_connect import ClientsService, ClientsServiceASGIApplication
 from libs.infra.runtime.executables import RpcApplication, RpcServiceExecutable
 from modules.clients.domain.client import Client
 from modules.clients.services.clients import (

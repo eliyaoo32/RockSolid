@@ -5,10 +5,10 @@ from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 
 import pytest
-from clients.v1.clients_connect import ClientsServiceClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from clients.v1.clients_connect import ClientsServiceClient
 from executables.clients_api.clients_api import ClientsApiExecutable
 from executables.clients_api.tests.framework.driver import ClientsDriver, FakeClock
 from libs.infra.runtime.executables import Infra

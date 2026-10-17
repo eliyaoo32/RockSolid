@@ -2,6 +2,8 @@
 
 [tool.ruff]
 line-length = 100
+# Where our own code lives, so imports from it are grouped as first-party.
+src = ["src/backend", "src/generated/python"]
 target-version = "py314"
 # Generated code is regenerated, never formatted or linted.
 extend-exclude = ["src/generated"]
@@ -22,8 +24,8 @@ asyncio_default_fixture_loop_scope = "function"
 [tool.coverage.run]
 branch = true
 # Generated code is exempt. Deployable entry points only wire and start the process.
-omit = ["src/generated/*", "src/deployables/*"]
+omit = ["src/generated/*", "src/backend/deployables/*"]
 
 [tool.coverage.report]
-omit = ["src/generated/*", "src/deployables/*"]
+omit = ["src/generated/*", "src/backend/deployables/*"]
 

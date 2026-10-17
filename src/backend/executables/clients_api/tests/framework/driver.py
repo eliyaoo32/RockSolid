@@ -3,6 +3,10 @@
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
 
+from connectrpc.code import Code
+from connectrpc.errors import ConnectError
+from protobuf.wkt import FieldMask
+
 from clients.v1.clients_connect import ClientsServiceClient
 from clients.v1.clients_pb import (
     Client,
@@ -12,9 +16,6 @@ from clients.v1.clients_pb import (
     ListClientsRequest,
     UpdateClientRequest,
 )
-from connectrpc.code import Code
-from connectrpc.errors import ConnectError
-from protobuf.wkt import FieldMask
 
 
 class FakeClock:

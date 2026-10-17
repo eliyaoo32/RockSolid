@@ -13,9 +13,9 @@ A project is a clone of RockSolid that keeps RockSolid's git history. RockSolid 
 
 | Owner | Files | Edited by |
 |---|---|---|
-| Framework | `AGENTS.md` (and `CLAUDE.md`, its link), `.agents/`, `.claude/`, `.pi/`, `README.md`, `docs/guides/`, `docs/features/FEATURE_TEMPLATE.md`, `Makefile`, `buf.yaml`, `buf.gen.yaml`, `.github/workflows/`, `src/libs/` | RockSolid only |
+| Framework | `AGENTS.md` (and `CLAUDE.md`, its link), `.agents/`, `.claude/`, `.pi/`, `README.md`, `docs/guides/`, `docs/features/FEATURE_TEMPLATE.md`, `Makefile`, `buf.yaml`, `buf.gen.yaml`, `.github/workflows/`, `src/backend/libs/` | RockSolid only |
 | Shared | `3rdparty/python/requirements.txt`, `3rdparty/python/default.lock`, `pants.toml`, `.gitignore` | Both. The update resolves their conflicts as described below. |
-| Project | `docs/features/<NNN>_*.md`, `src/protos/<module>/`, `src/generated/`, `src/modules/<module>/`, `src/executables/`, `src/deployables/`, `src/frontend/`, `src/e2e/` | The project only |
+| Project | `docs/features/<NNN>_*.md`, `src/protos/<module>/`, `src/generated/`, `src/backend/modules/<module>/`, `src/backend/executables/`, `src/backend/deployables/`, `src/frontend/`, `src/e2e/` | The project only |
 
 ## Start a Project
 

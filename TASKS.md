@@ -27,17 +27,17 @@
     - [ ] Validate requests with buf.validate
 
 - [ ] Database
-    - [ ] Add Postgres connection pool to src/libs/infra
+    - [ ] Add Postgres connection pool to src/backend/libs/infra
     - [x] Add database migrations per module
     - [x] Give each module its own database schema
 
 - [ ] Filtering
-    - [ ] Wrap odata-query in src/libs/infra/filtering
+    - [ ] Wrap odata-query in src/backend/libs/infra/filtering
     - [ ] Map filterable API paths to SQL expressions
     - [ ] Validate filters for syntax, paths, and types
     - [ ] Write the filtering syntax agent skill
 
-- [ ] Executable runtimes in src/libs/infra
+- [ ] Executable runtimes in src/backend/libs/infra
     - [x] Build the ConnectRPC service runtime
     - [ ] Build the cron scheduler runtime
     - [ ] Build the tasks queue on Postgres
@@ -85,7 +85,7 @@
     - [ ] Select the test LLM through an environment variable
     - [x] Add an injectable clock
     - [ ] Add an eventually helper for async effects
-    - [ ] Restrict src/libs/testing to test code
+    - [ ] Restrict src/backend/libs/testing to test code
     - [ ] Set up the E2E package with Playwright
 
 - [ ] Contacts example

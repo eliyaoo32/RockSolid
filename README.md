@@ -51,10 +51,10 @@ Where the guidelines, the process and the structure is defined well for building
 
 ### Composable 4-Tier Layer Hierarchy
 
-* **Strict 4-Tier Architecture:** The codebase is partitioned into Business Modules (`src/modules/`), Infrastructure Libraries (`src/libs/`), Executable Elements (`src/executables/`), and Deployables (`src/deployables/`).
-* **Inert Libraries Core:** Business Modules (`src/modules/`) hold pure domain and application logic; Infrastructure Libraries (`src/libs/`) provide shared, cross-cutting technical capabilities. Neither runs on its own.
-* **Executable Composition:** Executable Elements (`src/executables/`) provide concrete runtime drivers (e.g., ConnectRPC API, Cron scheduler, Events listener, AI agent) by importing from `src/modules/` and `src/libs/`.
-* **Autonomous Deployables:** A Deployable Element (`src/deployables/`) is a final, standalone runnable unit (e.g., a Docker image or PEX binary) that composes one or more Executable Elements into a single operational package.
+* **Strict 4-Tier Architecture:** The codebase is partitioned into Business Modules (`src/backend/modules/`), Infrastructure Libraries (`src/backend/libs/`), Executable Elements (`src/backend/executables/`), and Deployables (`src/backend/deployables/`).
+* **Inert Libraries Core:** Business Modules (`src/backend/modules/`) hold pure domain and application logic; Infrastructure Libraries (`src/backend/libs/`) provide shared, cross-cutting technical capabilities. Neither runs on its own.
+* **Executable Composition:** Executable Elements (`src/backend/executables/`) provide concrete runtime drivers (e.g., ConnectRPC API, Cron scheduler, Events listener, AI agent) by importing from `src/backend/modules/` and `src/backend/libs/`.
+* **Autonomous Deployables:** A Deployable Element (`src/backend/deployables/`) is a final, standalone runnable unit (e.g., a Docker image or PEX binary) that composes one or more Executable Elements into a single operational package.
 
 ### Single-Command Deterministic Verification Gate
 
@@ -91,7 +91,7 @@ Before a feature is built, the agent and the owner discuss it and write down wha
 Every business module has the same layout:
 
 ```
-src/modules/contacts/
+src/backend/modules/contacts/
 ├── domain/         # entities, value objects, aggregates, domain services, domain events
 ├── services/       # application services: the module's use cases and its public interface
 ├── repositories/   # repository interfaces, and their implementations: database tables, or a provider's API
@@ -125,7 +125,7 @@ Each executable type has its own base class under these two, which holds the wir
 
 ### Deployables
 
-A deployable is a list of the executable classes it runs, in one process. The runtime in `src/libs/infra/runtime/` does the rest:
+A deployable is a list of the executable classes it runs, in one process. The runtime in `src/backend/libs/infra/runtime/` does the rest:
 
 * **Infra, once per process:** it reads the configuration from environment variables and builds the infra every executable shares.
 * **Two commands in one image:** `migrate` migrates the schemas of every module the executables use, once per release. `serve` starts all the executables.
@@ -139,10 +139,10 @@ A deployable is a list of the executable classes it runs, in one process. The ru
 * The runtime is the only code that reads configuration, from environment variables.
 * All executables in a deployable share one database pool.
 
-### `src/libs/infra`
+### `src/backend/libs/infra`
 
 * Holds the technical capabilities that belong to no business module, such as the database pool and the domain-events bus.
-* It is organized by capability: `src/libs/infra/<capability>/`, such as `db/` and `events/`. Each capability folder holds its interface, its provider implementations, and its transport hooks, such as interceptors.
+* It is organized by capability: `src/backend/libs/infra/<capability>/`, such as `db/` and `events/`. Each capability folder holds its interface, its provider implementations, and its transport hooks, such as interceptors.
 * A capability with business meaning is a module, not a lib. Signing users in belongs to the users module.
 * The runtime builds the users module's sign-in service, because every API needs the caller. It is the only lib that uses a module.
 

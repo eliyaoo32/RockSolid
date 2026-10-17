@@ -4,15 +4,15 @@ __dependencies_rules__(
     # Domain code: domains and Pydantic only, so no database, provider, or transport code.
     (
         "/*/domain/**",
-        "//src/modules/*/domain/**",
+        "//src/backend/modules/*/domain/**",
         "//3rdparty/python#pydantic",
         "//3rdparty/python#pytest",
         "!*",
     ),
     # Repository interfaces: domains only.
-    ("/*/repositories/*_repository.py", "//src/modules/*/domain/**", "!*"),
+    ("/*/repositories/*_repository.py", "//src/backend/modules/*/domain/**", "!*"),
     # Repository implementations and their tests: their own folder, domains, third parties.
-    ("/*/repositories/**", "./*", "//src/modules/*/domain/**", "//3rdparty/python#*", "!*"),
+    ("/*/repositories/**", "./*", "//src/backend/modules/*/domain/**", "//3rdparty/python#*", "!*"),
     # Setup is the only service that builds implementations and runs migrations.
     (
         "/*/services/setup.py",
@@ -20,7 +20,7 @@ __dependencies_rules__(
         "../repositories/**",
         "../migrations",
         "../migrations/**",
-        "//src/modules/*/domain/**",
+        "//src/backend/modules/*/domain/**",
         "//3rdparty/python#*",
         "!*",
     ),
@@ -29,7 +29,7 @@ __dependencies_rules__(
         "/*/services/**",
         "./*",
         "../repositories/*_repository.py",
-        "//src/modules/*/domain/**",
+        "//src/backend/modules/*/domain/**",
         "//3rdparty/python#*",
         "!*",
     ),

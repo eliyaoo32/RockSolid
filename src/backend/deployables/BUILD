@@ -3,8 +3,8 @@ __dependencies_rules__(
     (
         "*",
         "./**",
-        "//src/executables/*/*.py",
-        "//src/libs/infra/**",
+        "//src/backend/executables/*/*.py",
+        "//src/backend/libs/infra/**",
         "//3rdparty/python#*",
         "!*",
     ),

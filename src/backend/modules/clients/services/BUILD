@@ -3,8 +3,8 @@ python_sources(
         # setup.py loads the migrations by path, so Pants cannot infer them.
         "setup.py": {
             "dependencies": [
-                "src/modules/clients/migrations",
-                "src/modules/clients/migrations/versions",
+                "src/backend/modules/clients/migrations",
+                "src/backend/modules/clients/migrations/versions",
             ]
         },
     },

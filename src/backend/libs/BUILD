@@ -4,9 +4,9 @@ __dependencies_rules__(
     (
         "/infra/runtime/**",
         "./*",
-        "//src/libs/infra/logs/**",
-        "//src/libs/testing/**",
-        "//src/modules/users/services/**",
+        "//src/backend/libs/infra/logs/**",
+        "//src/backend/libs/testing/**",
+        "//src/backend/modules/users/services/**",
         "//3rdparty/python#*",
         "!*",
     ),
