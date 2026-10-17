@@ -28,7 +28,8 @@
 ## Project Structure
 ```
 3rdparty/python/               # Python requirements and their Pants targets
-docs/                          # blueprints and their template
+docs/features/                 # feature blueprints and their template
+docs/guides/                   # Guidelines for jobs / actions.
 src/protos/<module>/v1/        # contracts, only .proto files
 src/generated/<language>/      # code generated from the contracts, one folder per language
 src/modules/<module>/          # one business module

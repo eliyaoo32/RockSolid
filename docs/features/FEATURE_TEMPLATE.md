@@ -1,6 +1,6 @@
 # <Feature Name>
 
-> **How to use this template.** Discuss the feature with the owner until every question has an answer, then write the document once. Copy this file to `docs/<NNN>_FEATURES_<FEATURE_NAME_UPPER_CASE>.md`, keep its `##` headings exactly as they are, and fill in each `<…>`. Every line that starts with `>`, like this one, is guidance for the writer: delete all of them, so the finished document holds none. The document stays under 1,500 lines. A feature that needs more becomes two features.
+> **How to use this template.** Discuss the feature with the owner until every question has an answer, then write the document once. Copy this file to `docs/features/<NNN>_FEATURES_<FEATURE_NAME_UPPER_CASE>.md`, keep its `##` headings exactly as they are, and fill in each `<…>`. Every line that starts with `>`, like this one, is guidance for the writer: delete all of them, so the finished document holds none. The document stays under 1,500 lines. A feature that needs more becomes two features.
 >
 > **Left out.** File paths, code, request and response fields, and test cases. How to implement and develop the feature, including where code goes, comes from the project structure and the guidelines in `AGENTS.md`, not from this document. The `.proto` contracts hold the API and event fields, and they are added in the same pull request as this document. The tests cover every case, and only an edge case the owner decides appears here, as one Decisions row.
 

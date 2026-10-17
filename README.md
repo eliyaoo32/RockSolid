@@ -75,8 +75,8 @@ Where the guidelines, the process and the structure is defined well for building
 
 Before a feature is built, the agent and the owner discuss it and write down what they agreed in a blueprint. The implementation agent builds exactly what the blueprint says, and nothing it doesn't say.
 
-* **Template:** [`docs/FEATURE_TEMPLATE.md`](docs/FEATURE_TEMPLATE.md)
-* **Location:** `docs/<NNN>_FEATURES_<FEATURE_NAME_UPPER_CASE>.md` (e.g., `docs/001_FEATURES_USER_AUTHENTICATION.md`)
+* **Template:** [`docs/features/FEATURE_TEMPLATE.md`](docs/features/FEATURE_TEMPLATE.md)
+* **Location:** `docs/features/<NNN>_FEATURES_<FEATURE_NAME_UPPER_CASE>.md` (e.g., `docs/features/001_FEATURES_USER_AUTHENTICATION.md`)
 * **Collaboration:** the blueprint is written together by a human engineer and an AI agent.
 * **Contracts:** the feature's `.proto` files are added in the same pull request as the blueprint.
 * **Size:** at most 1,500 lines. A bigger feature is split into smaller features.
@@ -186,7 +186,7 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 
 * Shadcn - It's has most of the components we will need, very good for building beatiful applications, agents work with it well.
 
-* Copier - Library and command-line utility for rendering projects templates. [TODO: check if i really want to use it] 
+* Git - Projects start as a clone of this repository and take its updates with `git merge`. See [`docs/guides/STARTING_AND_UPDATING_A_PROJECT.md`](docs/guides/STARTING_AND_UPDATING_A_PROJECT.md).
 
 ## AI Skills and Instructions
 
@@ -195,6 +195,7 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 * **`README.md`** states the principles and describes the framework.
 * **`AGENTS.md`** holds the concrete rules that apply to every task.
 * **Skills** hold the detail that only some tasks need. Each skill declares when it is used, so nothing has to point to it.
+* **`docs/guides/`** holds the steps for a recurring job that people run, such as starting a project.
 * **A rule that a tool enforces is not written down.** The tool is the rule.
 * **Each rule lives in one place** and is never repeated in another.
 
