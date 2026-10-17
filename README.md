@@ -19,7 +19,7 @@ Where the guidelines, the process and the structure is defined well for building
 
 ### Contract-First & Strict Typing
 
-* **Contracts Precede Code:** All network APIs, shared payloads, and event schemas must be formally defined as contracts before writing application code.
+* **Contracts Precede Code:** All network APIs and shared payloads must be formally defined as contracts before writing application code. Domain events are contracts too: typed Pydantic models in the publishing module's domain, which only backend modules consume.
 * **End-to-End Type Safety:** Strict typing is enforced everywhere; untyped data structures and dynamic bypasses are banned.
 * **Single Source of Truth:** Code stubs, client models, and server handlers derive strictly from the agreed-upon contracts.
 
@@ -91,7 +91,7 @@ Before a feature is built, the agent and the owner discuss it and write down wha
 Every business module has the same layout:
 
 ```
-src/backend/modules/contacts/
+src/backend/modules/<module>/
 ├── domain/         # entities, value objects, aggregates, domain services, domain events
 ├── services/       # application services: the module's use cases and its public interface
 ├── repositories/   # repository interfaces, and their implementations: database tables, or a provider's API
@@ -100,7 +100,7 @@ src/backend/modules/contacts/
 
 * **Domain models are always valid.** Value objects are immutable, and an entity rejects any creation or change that breaks its rules. The domain knows nothing about the database.
 * **Domain services** hold business logic that spans several entities and does no I/O. **Application services** load aggregates through repositories, call the domain, save the result, and publish events.
-* **Repositories:** `repositories/` holds each repository's interface and its implementation, with a database or a provider's API. Application services depend only on the interface. The clients module stores clients in Postgres; the users module signs users in through Firebase. A repository loads and saves whole aggregates.
+* **Repositories:** `repositories/` holds each repository's interface and its implementation, with a database or a provider's API. Application services depend only on the interface. A repository can store its aggregates in Postgres; the users module signs users in through Firebase. A repository loads and saves whole aggregates.
 * **Aggregates reference each other by ID**, never through ORM relationships.
 * **Modules share only their domain.** A module may import another module's domain, never its services or repositories. Executables and deployables use a module only through its `services/`.
 
@@ -133,6 +133,7 @@ A deployable is a list of the executable classes it runs, in one process. The ru
 * **Logs:** every log line is one JSON object on stdout, tagged with the ID of the request it served. Each response carries its request ID in `X-Request-ID`.
 * **Cron jobs:** the runtime hands every cron job to its cron runner, which decides how jobs are triggered. The first runner runs them inside the process; another runner, such as a hosted scheduler, can replace it without changing the executables.
   [TODO: run each cron job once when a deployable runs more than once. Today every running copy of a deployable runs every job.]
+* **Domain events:** a module publishes an event in the same transaction as the change it describes, into one event log in Postgres. The runtime delivers every listener executable's subscriptions from that log: each subscription has its own cursor, receives its event type in order, at least once, and is retried as the subscription's retry strategy says when its handler fails, until the event is parked. Only one running copy of a deployable delivers each subscription. Another bus, such as a hosted broker, can replace the Postgres one without changing listeners.
 * **Graceful shutdown:** on SIGTERM, it stops taking new work, lets running work finish, and closes the pools.
 
 ### Dependency Injection

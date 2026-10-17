@@ -46,7 +46,7 @@ src/e2e/                               # the E2E package
 - **Modules Share Only Their Domain:** A module imports another module's `domain/` (entities, value objects, IDs, and events) and nothing else. Executables and deployables use a module only through its `services/`.
 - **Libraries Are Organized by Capability:** A capability's interface, provider implementations, and interceptors live together in `src/backend/libs/infra/<capability>/`, never in a folder named after the tier that imports or creates them. A capability with business meaning, such as signing users in, is a module.
 - **Shared Domain Holds Only Value Objects and Enums:** `src/backend/modules/shared/domain/` never holds entities, services, or repositories.
-- **Executables Are Named After Their Job:** An executable's folder name says what it does (`contacts_api`, `contacts_assistant`), never its type.
+- **Executables Are Named After Their Job:** An executable's folder name says what it does, such as `<module>_api` for a module's RPC service or `<module>_assistant` for its AI agent, never only its type.
 
 ## Backend
 
@@ -58,7 +58,7 @@ src/e2e/                               # the E2E package
 - **The Domain Knows No Vendors:** Domain code, its comments, its test names, and its limits never mention or depend on a provider or tool, such as an auth provider, a database, an ORM, or a cloud. The domain states its own rules, and the adapter that talks to the provider maps the provider's values to the domain's.
 - **Value Objects Stay Nested:** A value object has no ID and no lifecycle, and it may carry logic. An entity holds each value object as one nested object, in the domain and in the API, never as its fields flattened into the entity. A value object used by several modules lives in `src/backend/modules/shared/domain/`.
 - **Value Objects Are Prefixed Columns:** In the database, a value object's fields are columns prefixed with the name of the entity field that holds it (`address_city`, `address_street`). The repository maps them.
-- **Repositories:** A repository's interface and its implementation both live in `repositories/`, in separate files (`client_repository.py` and `postgres_clients.py`). Application services import only the interface; only the module's `services/setup.py` imports an implementation. The implementation talks to a database or a provider's API: `postgres_clients.py` stores clients, and `firebase_users.py` signs users in. A database repository uses SQLModel table models (`table=True`). It converts with `model_validate` (`Contact.model_validate(row, from_attributes=True)` and `ContactRow.model_validate(contact)`), and maps by hand only the fields whose name or shape differ, such as value-object columns.
+- **Repositories:** A repository's interface and its implementation both live in `repositories/`, in separate files: `<aggregate>_repository.py` for the interface and `postgres_<aggregates>.py` for a Postgres implementation. Application services import only the interface; only the module's `services/setup.py` imports an implementation. The implementation talks to a database, or to a provider's API as `firebase_users.py` does to sign users in. A database repository uses SQLModel table models (`table=True`). It converts with `model_validate` (`<Entity>.model_validate(row, from_attributes=True)` and `<Entity>Row.model_validate(entity)`), and maps by hand only the fields whose name or shape differ, such as value-object columns.
 - **Whole Aggregates:** A repository loads and saves a whole aggregate, never part of it.
 - **References by ID:** An aggregate refers to another aggregate by its ID. Table models declare no `Relationship()` across aggregates; joins exist only for reads and filters.
 - **Injected Clock:** Code never reads the current time directly. It gets a clock through injection.
@@ -71,12 +71,15 @@ src/e2e/                               # the E2E package
 ### Executables and Deployables
 - **An Executable Is a Class:** An executable subclasses the base class of its type, such as `RpcServiceExecutable`, declares its `migrations`, and implements only what differs from other executables of its type. Wiring that every executable of a type repeats belongs in the type's base class.
 - **Cron Jobs:** A cron executable subclasses `CronExecutable` and returns its jobs from `jobs()`, each a `CronJob(schedule, function)` with a UTC cron expression such as `*/5 * * * *`. The executable alone decides its jobs; group them into executables by business area. A job never schedules itself, sleeps, or loops: the runtime's cron runner triggers it. A job that fails is logged and runs again at its next time, so a job must be safe to run again.
+- **Domain Events:** A domain event is a frozen Pydantic model in the publishing module's `domain/`, with a class-level `event_type` of the form `"<module>.<EventClassName>"`. Name it in the past tense, after the fact it records. The event log stores `event_type`, so it never changes; fields are only added, with defaults, so events already in the log still load.
+- **Publishing:** An application service creates the events, and the repository's `save` takes the aggregate and its events and publishes the events with `append_events`, in the same transaction as the change. Never publish after the commit: a crash between the two loses the event.
+- **Listening:** A listener executable subclasses `DomainEventsListenerExecutable` and returns `Subscription(name, event_class, handler)` from `subscriptions()`. The name keeps the subscription's place in the event log, so it stays the same across releases. A handler may receive an event more than once, so it must be safe to run again. A subscription's `retry` strategy, from `src/backend/libs/infra/retry/` (`Exponential` by default, `Constant`, `Delays`, or `NO_RETRY`), says how a failing handler is retried before its event is parked. A handler raises `NonRetryableError` for a failure that trying again cannot fix, and its event is parked at once.
 - **A Deployable Is a List:** A deployable's `main.py` lists its executable classes and hands them to the runtime's `run`. It builds nothing itself.
 - **Logging:** Write logs with Python's `logging` module (`logger = logging.getLogger(__name__)`), never with `print`. The runtime turns every log line into JSON on stdout and adds the ID of the request it belongs to, so all the logs of one request can be found together.
 - **Migrate, Then Serve:** The image runs `migrate` once per release and `serve` on every replica. `serve` never migrates.
 
 ### API
-- **Soft Conflicts:** A suspicious but allowed action, such as creating a contact whose email already exists in the tenant, fails by default with `FAILED_PRECONDITION` and error details that describe the conflict. The request has a `force` field. The client shows the conflict to the user and, after the user confirms, resends the request with `force` set to true, which skips only that check. A broken domain rule never accepts `force`.
+- **Soft Conflicts:** A suspicious but allowed action, such as creating a record whose email already exists in the tenant, fails by default with `FAILED_PRECONDITION` and error details that describe the conflict. The request has a `force` field. The client shows the conflict to the user and, after the user confirms, resends the request with `force` set to true, which skips only that check. A broken domain rule never accepts `force`.
 - **Filtering Goes Through `src/backend/libs/infra`:** List methods parse and translate their OData `filter` only through the filtering wrapper in `src/backend/libs/infra/filtering/`, never through the filtering library directly.
 - **Filter Schemas:** Each List method has a filter schema in its module's `repositories/`. The schema maps each filterable API path to a SQL expression: a column, a renamed column, a joined column, or a computed expression. A value that exists only in Python is not filterable.
 - **Filters Are Validated:** Every filter is checked for syntax, known paths, and value types before it runs. An invalid filter fails with `INVALID_ARGUMENT`, and the message says what is wrong and lists the filterable fields.
@@ -97,7 +100,7 @@ These rules apply to the production frontend in `src/frontend/`. The wireframe i
 - **Visible Loading States:** Every screen and list that waits for the backend shows a stable skeleton shaped like its content, never a blank screen. A search input shows a spinner while its request runs. A near-instant answer keeps the skeleton stable instead of flashing.
 - **Debounced Server Search:** A search input that queries the backend waits until the user stops typing (about 350 ms) before it sends the request. The typed text appears on screen instantly.
 - **Cmd/Ctrl+Enter Submits a Text Area:** In a text area with a submit button, Cmd+Enter on macOS and Ctrl+Enter elsewhere submits exactly what the button submits. A plain Enter adds a line.
-- **No Hard-Coded Backend Data:** The frontend never contains hard-coded, mock, or placeholder data that should come from the backend, such as user names, contacts, counts, or settings. Such data comes only from the backend and the signed-in user's context.
+- **No Hard-Coded Backend Data:** The frontend never contains hard-coded, mock, or placeholder data that should come from the backend, such as user names, records, counts, or settings. Such data comes only from the backend and the signed-in user's context.
 - **All UI Text Through i18n:** Every user-facing string renders through a translation key, never as a literal in a component.
 - **The Wireframe Is the Approved Design:** The owner reviewed and approved the wireframe and its README. The frontend matches their layout, components, colors, and text, and never redesigns them.
 - **Missing States Go to the Owner:** The wireframe does not show every state. Before building a view, list each state it leaves out, such as empty lists, errors, each status of an entity, and long or missing values, and propose a design for each that follows the wireframe. Build them after the owner approves. A state these guidelines already define, such as loading, needs no approval.
@@ -111,12 +114,12 @@ These rules apply to the production frontend in `src/frontend/`. The wireframe i
 
 ### Test Folders
 ```
-src/backend/modules/contacts/domain/contact.py
-src/backend/modules/contacts/domain/contact_test.py           # unit test, next to its source
-src/backend/executables/contacts_api/tests/contacts_test.py   # component tests, named after the feature
-src/backend/executables/contacts_api/tests/framework/         # this executable's drivers, fixtures, and fakes
+src/backend/modules/<module>/domain/<entity>.py
+src/backend/modules/<module>/domain/<entity>_test.py          # unit test, next to its source
+src/backend/executables/<name>/tests/<feature>_test.py       # component tests, named after the feature
+src/backend/executables/<name>/tests/framework/               # this executable's drivers, fixtures, and fakes
 src/backend/libs/testing/                                     # fakes and helpers shared by several executables
-src/e2e/tests/contact_management.spec.ts                      # E2E tests
+src/e2e/tests/<feature>.spec.ts                      # E2E tests
 src/e2e/framework/                                            # E2E drivers, fixtures, and fakes
 ```
 - Drivers, fixtures, and fakes live only in `framework/` folders or `src/backend/libs/testing/`, never in test files or product code.
@@ -129,8 +132,8 @@ Every production change follows Red-Green-Refactor:
 3. **Refactor:** Clean up the code and the tests, keeping every test green.
 
 ### Test Levels
-- **Unit Tests:** Cover the domain code in `src/backend/modules/*/domain/`: entities, value objects, and domain services. Every source file in `domain/` has a test file next to it (`contact.py` → `contact_test.py`). Domain code does no I/O, so unit tests need no fakes.
-- **Component Tests:** Test one executable as a whole, through its contract: RPC calls for an RPC service, a published event for a domain-events listener, a queued task for a tasks consumer, a clock tick for a cron scheduler, and a conversation for an AI agent. Each test runs a complete flow the way a client uses the component: for an RPC service, create a contact, list it, update it, and get it again. Services, repositories, and the database (an ephemeral Postgres) are real parts of the component and are never tested on their own; everything outside the executable is a fake.
+- **Unit Tests:** Cover the domain code in `src/backend/modules/*/domain/`: entities, value objects, and domain services. Every source file in `domain/` has a test file next to it (`<entity>.py` → `<entity>_test.py`). Domain code does no I/O, so unit tests need no fakes.
+- **Component Tests:** Test one executable as a whole, through its contract: RPC calls for an RPC service, a published event for a domain-events listener, a queued task for a tasks consumer, a clock tick for a cron scheduler, and a conversation for an AI agent. Each test runs a complete flow the way a client uses the component: for an RPC service, create a record, list it, update it, and get it again. Services, repositories, and the database (an ephemeral Postgres) are real parts of the component and are never tested on their own; everything outside the executable is a fake.
 - **Provider Repository Tests:** A repository that talks to a provider, such as `firebase_users.py`, is replaced by a fake in component tests, so it has its own tests next to it, against a local fake of the provider.
 - **End-to-End (E2E) Tests:** Test the whole system: the real deployables and the production frontend build, driven through the UI in a real browser with Playwright. E2E tests simulate complicated, realistic user journeys: long flows across several screens and features, done the way real users do them, including mistakes, corrections, and returning later to continue. Third parties are fakes.
   - **API-Driven Before the UI Exists:** A feature whose UI does not exist yet runs its E2E tests through the ConnectRPC API, with the same rules. The feature that adds the UI adds the UI-driven tests.
@@ -143,14 +146,14 @@ Every production change follows Red-Green-Refactor:
 - **Rendered Output Is Asserted:** A test that changes what a control shows asserts the text the user then sees, not only the value the control sends onward. Selecting an option in a dropdown, for example, asserts that the closed control shows the option's label, not its raw value.
 
 ### Test Files
-- **Feature-Named Files:** A test file is named after the feature it covers, never after a layer or an endpoint (`contact_import_test.py`, not `rpc_test.py`). Group a feature's scenarios into as few files as its size allows.
+- **Feature-Named Files:** A test file is named after the feature it covers, never after a layer or an endpoint (`<feature>_test.py`, such as `import_from_spreadsheet_test.py`, never `rpc_test.py`). Group a feature's scenarios into as few files as its size allows.
 
 ### Drivers
 - **Driver Pattern:** Component and E2E tests read as scenarios. A driver hides how each step is done: `driver.when.*` performs actions, and `driver.get.*` reads results.
   ```python
-  driver.when.create_contact(name="Avi", email="avi@example.com")
-  driver.when.rename_contact(name="Avi Cohen")
-  assert driver.get.contact().name == "Avi Cohen"
+  driver.when.create_record(name="Avi", email="avi@example.com")
+  driver.when.rename_record(name="Avi Cohen")
+  assert driver.get.record().name == "Avi Cohen"
   ```
 
 ### Required Scenarios
@@ -158,7 +161,7 @@ Every production change follows Red-Green-Refactor:
 - **Tenant Isolation:** Every tenant-owned resource has component tests with two tenants holding identical data, proving that:
   - each tenant's List returns only its own resources;
   - a Get, Update, or Delete on the other tenant's resource is rejected, changes nothing, and does not reveal that the resource exists;
-  - the same value under two tenants, such as the same contact email, belongs to each tenant independently.
+  - the same value under two tenants, such as the same email, belongs to each tenant independently.
 - **Agents Act as Their User:** Every agent has a component test proving it cannot do anything its signed-in user cannot do.
 
 ### Scenario Depth
@@ -172,7 +175,7 @@ Component and E2E tests model realistic, multi-step state changes:
 
 ### Fakes and Test Infrastructure
 Only the runtime creates infra, so tests swap every external dependency the same way: by putting a fake in the `Infra` they pass to it.
-- **Production Runtime:** Tests run executables through the real runtime, `Runtime([ClientsApiExecutable], test_infra, port=0)`, with fakes in `test_infra`, so the tests exercise the real wiring.
+- **Production Runtime:** Tests run executables with `run_executables(...)` from `src/backend/libs/testing/runtime.py`. It runs them through the real runtime, with fakes in place of the outside world and `FakeTime` driving cron jobs and event retries, so the tests exercise the real wiring. An executable's fixture adds only what is its own, such as its tables and its fake sign-in.
 - **Time Moves Only When a Test Moves It:** Tests use `FakeTime` from `src/backend/libs/testing/time.py` as the clock, and move it with `advance`. Passed as a cron runner's wait (`InProcessCronRunner(time, time.wait)`), it makes a job run exactly when the test moves time past its schedule.
 - **No Sleeping:** Tests never sleep to wait for asynchronous effects. They poll with `eventually(...)`, from `src/backend/libs/testing/time.py`, until the effect appears or a timeout fails the test.
 

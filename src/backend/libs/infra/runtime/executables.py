@@ -11,6 +11,7 @@ from connectrpc.interceptor import MetadataInterceptor
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from libs.infra.cron.cron import CronJob
+from libs.infra.events.events import Subscription
 from modules.users.services.auth import Auth
 
 type Scope = MutableMapping[str, Any]
@@ -63,8 +64,13 @@ class TasksConsumerExecutable(BackgroundExecutable):
     """Takes commands from a queue and runs each one exactly once, with retries."""
 
 
-class DomainEventsListenerExecutable(BackgroundExecutable):
-    """Reacts to domain events published by any module."""
+class DomainEventsListenerExecutable(BackgroundExecutable, ABC):
+    """Reacts to domain events published by any module. One executable holds as many
+    subscriptions as its business area needs."""
+
+    @abstractmethod
+    def subscriptions(self) -> Sequence[Subscription[Any]]:
+        """The executable's subscriptions. The runtime calls it once, at startup."""
 
 
 class RpcApplication(Protocol):

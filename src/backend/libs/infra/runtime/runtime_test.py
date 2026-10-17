@@ -3,17 +3,21 @@ import os
 import signal
 from collections.abc import AsyncIterator, Mapping, Sequence
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, ClassVar
 
 import httpx
 import pytest
 from connectrpc.interceptor import MetadataInterceptor
+from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from libs.infra.cron.cron import CronJob
+from libs.infra.events.events import Subscription
 from libs.infra.runtime.executables import (
     ASGIApp,
     CronExecutable,
+    DomainEventsListenerExecutable,
     HttpExecutable,
     Infra,
     Receive,
@@ -55,6 +59,45 @@ class Reminders(CronExecutable):
     async def send_due(self) -> None: ...
 
     async def purge_old(self) -> None: ...
+
+
+class Greeted(BaseModel):
+    event_type: ClassVar[str] = "tests.Greeted"
+    name: str
+
+
+class Greeters(DomainEventsListenerExecutable):
+    """A listener executable with two subscriptions."""
+
+    def subscriptions(self) -> Sequence[Subscription[Any]]:
+        return [
+            Subscription("welcome_guest", Greeted, self.welcome),
+            Subscription("count_guests", Greeted, self.welcome),
+        ]
+
+    async def welcome(self, event: Greeted) -> None: ...
+
+
+class MoreGreeters(DomainEventsListenerExecutable):
+    """Reuses a subscription name that Greeters already has."""
+
+    def subscriptions(self) -> Sequence[Subscription[Any]]:
+        return [Subscription("welcome_guest", Greeted, self.welcome)]
+
+    async def welcome(self, event: Greeted) -> None: ...
+
+
+class RecordingBus:
+    """An event bus that records the subscriptions it was given and returns once stopped."""
+
+    def __init__(self) -> None:
+        self.names: list[str] = []
+        self.started = asyncio.Event()
+
+    async def run(self, subscriptions: Sequence[Subscription[Any]], stop: asyncio.Event) -> None:
+        self.names = [subscription.name for subscription in subscriptions]
+        self.started.set()
+        await stop.wait()
 
 
 class RecordingCron:
@@ -246,3 +289,31 @@ async def test_hands_every_cron_job_to_the_cron_runner(infra: Infra) -> None:
     await task
 
     assert cron.jobs == {"send_due": "*/5 * * * *", "purge_old": "0 3 * * *"}
+
+
+async def test_hands_every_subscription_to_the_event_bus(infra: Infra) -> None:
+    bus = RecordingBus()
+    stop = asyncio.Event()
+    task = await serving(Runtime([EchoApi, Greeters], infra, port=0, events=bus), stop)
+
+    async with asyncio.timeout(10):
+        await bus.started.wait()
+    stop.set()
+    await task
+
+    assert bus.names == ["welcome_guest", "count_guests"]
+
+
+async def test_refuses_to_start_with_two_subscriptions_of_the_same_name(infra: Infra) -> None:
+    runtime = Runtime([Greeters, MoreGreeters], infra, port=0, events=RecordingBus())
+
+    with pytest.raises(ValueError, match="two subscriptions are named welcome_guest"):
+        await runtime.serve(asyncio.Event())
+
+
+async def test_migrates_the_event_log_that_every_module_publishes_to(infra: Infra) -> None:
+    await Runtime([EchoApi], infra, port=0).migrate()
+
+    async with infra.database.connect() as connection:
+        found = await connection.execute(text("SELECT to_regclass('events.log')::text"))
+        assert found.scalar() == "events.log"
