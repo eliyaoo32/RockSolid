@@ -1,7 +1,7 @@
 """Drives the clients API through its ConnectRPC contract, as a signed-in user would."""
 
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from connectrpc.code import Code
 from connectrpc.errors import ConnectError
@@ -16,29 +16,18 @@ from clients.v1.clients_pb import (
     ListClientsRequest,
     UpdateClientRequest,
 )
-
-
-class FakeClock:
-    """A clock that moves only when a test moves it."""
-
-    def __init__(self, start: datetime) -> None:
-        self.now = start
-
-    def __call__(self) -> datetime:
-        return self.now
-
-    def advance(self, by: timedelta) -> None:
-        self.now += by
+from libs.testing.time import FakeTime
 
 
 class ClientsDriver:
-    def __init__(self, api: ClientsServiceClient, clock: FakeClock) -> None:
+    def __init__(self, api: ClientsServiceClient, clock: FakeTime) -> None:
         self.when = _When(self, api, clock)
         self.get = _Get(self, api)
         self.token: str | None = None
         self.last: Client | None = None
         self.next_page_token = ""
         self.error: Code | None = None
+        self.error_message = ""
 
     def headers(self) -> dict[str, str]:
         return {} if self.token is None else {"authorization": f"Bearer {self.token}"}
@@ -50,11 +39,12 @@ class ClientsDriver:
             return await request()
         except ConnectError as error:
             self.error = error.code
+            self.error_message = error.message
             return None
 
 
 class _When:
-    def __init__(self, driver: ClientsDriver, api: ClientsServiceClient, clock: FakeClock) -> None:
+    def __init__(self, driver: ClientsDriver, api: ClientsServiceClient, clock: FakeTime) -> None:
         self._driver = driver
         self._api = api
         self._clock = clock
@@ -108,6 +98,9 @@ class _Get:
     def error(self) -> Code | None:
         return self._driver.error
 
+    def error_message(self) -> str:
+        return self._driver.error_message
+
     def last_client(self) -> Client:
         assert self._driver.last is not None
         return self._driver.last
@@ -123,9 +116,11 @@ class _Get:
         )
         return None if response is None else response.client
 
-    async def client_names(self, page_size: int = 0, page_token: str = "") -> list[str] | None:
+    async def client_names(
+        self, page_size: int = 0, page_token: str = "", filter: str = ""
+    ) -> list[str] | None:
         """Returns the display names on one page, and keeps the next page token."""
-        request = ListClientsRequest(page_size=page_size, page_token=page_token)
+        request = ListClientsRequest(page_size=page_size, page_token=page_token, filter=filter)
         response = await self._driver.call(
             lambda: self._api.list_clients(request, headers=self._driver.headers())
         )

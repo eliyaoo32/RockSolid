@@ -32,14 +32,15 @@
     - [x] Give each module its own database schema
 
 - [ ] Filtering
-    - [ ] Wrap odata-query in src/backend/libs/infra/filtering
-    - [ ] Map filterable API paths to SQL expressions
-    - [ ] Validate filters for syntax, paths, and types
-    - [ ] Write the filtering syntax agent skill
+    - [x] Wrap odata-query in src/backend/libs/infra/filtering
+    - [x] Map filterable API paths to SQL expressions
+    - [x] Validate filters for syntax, paths, and types
+    - [x] Write the filtering syntax agent skill
 
 - [ ] Executable runtimes in src/backend/libs/infra
     - [x] Build the ConnectRPC service runtime
-    - [ ] Build the cron scheduler runtime
+    - [x] Build the cron scheduler runtime
+    - [ ] TODO: run each cron job once when a deployable runs more than once
     - [ ] Build the tasks queue on Postgres
     - [ ] Build the domain events bus on Postgres
     - [ ] Build the AI agent runtime with Pydantic AI
@@ -84,7 +85,7 @@
     - [ ] Run the Firebase Auth emulator in E2E
     - [ ] Select the test LLM through an environment variable
     - [x] Add an injectable clock
-    - [ ] Add an eventually helper for async effects
+    - [x] Add an eventually helper for async effects
     - [ ] Restrict src/backend/libs/testing to test code
     - [ ] Set up the E2E package with Playwright
 

@@ -55,6 +55,9 @@ message ListClientsRequest {
   int32 page_size = 1;
   // The next_page_token from a previous response, to get the next page.
   string page_token = 2;
+  // An OData filter, such as `display_name eq 'Avi Cohen'`. Filterable fields: display_name,
+  // email, create_time, and update_time. Empty returns every client.
+  string filter = 3;
 }
 
 // The response for ListClients.

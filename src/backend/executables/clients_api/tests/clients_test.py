@@ -135,3 +135,48 @@ async def test_lists_clients_newest_first_one_page_at_a_time(driver: ClientsDriv
     assert driver.get.error() == Code.INVALID_ARGUMENT
     assert await driver.get.client_names(page_token="not-a-token") is None
     assert driver.get.error() == Code.INVALID_ARGUMENT
+
+
+async def test_filters_clients(driver: ClientsDriver) -> None:
+    driver.when.sign_in_as("uid-dana")
+    await driver.when.create_client("Avi Cohen", email="avi@example.com")
+    driver.when.time_passes(timedelta(days=1))
+    await driver.when.create_client("Noa Bar")
+    driver.when.time_passes(timedelta(days=1))
+    await driver.when.create_client("Avi Levi", email="levi@example.com")
+    driver.when.sign_in_as("uid-moshe")
+    await driver.when.create_client("Avi Cohen")
+    driver.when.sign_in_as("uid-dana")
+
+    assert await driver.get.client_names(filter="display_name eq 'Avi Cohen'") == ["Avi Cohen"]
+    assert await driver.get.client_names(filter="startswith(display_name, 'Avi')") == [
+        "Avi Levi",
+        "Avi Cohen",
+    ]
+    assert await driver.get.client_names(filter="email eq null") == ["Noa Bar"]
+    one_day_in = (START + timedelta(hours=12)).isoformat().replace("+00:00", "Z")
+    assert await driver.get.client_names(filter=f"create_time gt {one_day_in}") == [
+        "Avi Levi",
+        "Noa Bar",
+    ]
+
+    names = await driver.get.client_names(page_size=1, filter="contains(display_name, 'Avi')")
+    assert names == ["Avi Levi"]
+    next_page = driver.get.next_page_token()
+    filtered = "contains(display_name, 'Avi')"
+    assert await driver.get.client_names(page_token=next_page, filter=filtered) == ["Avi Cohen"]
+    assert driver.get.next_page_token() == ""
+
+
+async def test_rejects_an_invalid_filter_and_says_why(driver: ClientsDriver) -> None:
+    driver.when.sign_in_as("uid-dana")
+
+    for filter, problem in [
+        ("display_name eq", "not a valid filter"),
+        ("owner_id eq 'uid-moshe'", "unknown field 'owner_id'"),
+        ("create_time gt 'yesterday'", "'create_time' holds date-times"),
+    ]:
+        assert await driver.get.client_names(filter=filter) is None
+        assert driver.get.error() == Code.INVALID_ARGUMENT
+        assert problem in driver.get.error_message()
+        assert "display_name" in driver.get.error_message()

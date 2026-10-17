@@ -70,6 +70,7 @@ src/e2e/                               # the E2E package
 
 ### Executables and Deployables
 - **An Executable Is a Class:** An executable subclasses the base class of its type, such as `RpcServiceExecutable`, declares its `migrations`, and implements only what differs from other executables of its type. Wiring that every executable of a type repeats belongs in the type's base class.
+- **Cron Jobs:** A cron executable subclasses `CronExecutable` and returns its jobs from `jobs()`, each a `CronJob(schedule, function)` with a UTC cron expression such as `*/5 * * * *`. The executable alone decides its jobs; group them into executables by business area. A job never schedules itself, sleeps, or loops: the runtime's cron runner triggers it. A job that fails is logged and runs again at its next time, so a job must be safe to run again.
 - **A Deployable Is a List:** A deployable's `main.py` lists its executable classes and hands them to the runtime's `run`. It builds nothing itself.
 - **Logging:** Write logs with Python's `logging` module (`logger = logging.getLogger(__name__)`), never with `print`. The runtime turns every log line into JSON on stdout and adds the ID of the request it belongs to, so all the logs of one request can be found together.
 - **Migrate, Then Serve:** The image runs `migrate` once per release and `serve` on every replica. `serve` never migrates.
@@ -78,7 +79,7 @@ src/e2e/                               # the E2E package
 - **Soft Conflicts:** A suspicious but allowed action, such as creating a contact whose email already exists in the tenant, fails by default with `FAILED_PRECONDITION` and error details that describe the conflict. The request has a `force` field. The client shows the conflict to the user and, after the user confirms, resends the request with `force` set to true, which skips only that check. A broken domain rule never accepts `force`.
 - **Filtering Goes Through `src/backend/libs/infra`:** List methods parse and translate their OData `filter` only through the filtering wrapper in `src/backend/libs/infra/filtering/`, never through the filtering library directly.
 - **Filter Schemas:** Each List method has a filter schema in its module's `repositories/`. The schema maps each filterable API path to a SQL expression: a column, a renamed column, a joined column, or a computed expression. A value that exists only in Python is not filterable.
-- **Filters Are Validated:** Every filter is checked for syntax, known paths, and value types before it runs. An invalid filter fails with `INVALID_ARGUMENT`. For agent tools, the error details list the valid paths.
+- **Filters Are Validated:** Every filter is checked for syntax, known paths, and value types before it runs. An invalid filter fails with `INVALID_ARGUMENT`, and the message says what is wrong and lists the filterable fields.
 
 ## Wireframe
 - **User Flow First:** Before designing a screen, card, or component, write the user's flow from their side: who arrives, from where, what they want done, and where they go next. Then load the `ui-ux-pro-max` skill and take from it the patterns that fit that flow.
@@ -172,8 +173,8 @@ Component and E2E tests model realistic, multi-step state changes:
 ### Fakes and Test Infrastructure
 Only the runtime creates infra, so tests swap every external dependency the same way: by putting a fake in the `Infra` they pass to it.
 - **Production Runtime:** Tests run executables through the real runtime, `Runtime([ClientsApiExecutable], test_infra, port=0)`, with fakes in `test_infra`, so the tests exercise the real wiring.
-- **Time Moves Only When a Test Moves It:** Tests control the injected clock and move it forward.
-- **No Sleeping:** Tests never sleep to wait for asynchronous effects. They poll with `eventually(...)` until the effect appears or a timeout fails the test.
+- **Time Moves Only When a Test Moves It:** Tests use `FakeTime` from `src/backend/libs/testing/time.py` as the clock, and move it with `advance`. Passed as a cron runner's wait (`InProcessCronRunner(time, time.wait)`), it makes a job run exactly when the test moves time past its schedule.
+- **No Sleeping:** Tests never sleep to wait for asynchronous effects. They poll with `eventually(...)`, from `src/backend/libs/testing/time.py`, until the effect appears or a timeout fails the test.
 
 | Dependency | Component tests | E2E tests |
 |---|---|---|

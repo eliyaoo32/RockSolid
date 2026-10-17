@@ -14,6 +14,7 @@ from pydantic import ValidationError
 
 from clients.v1 import clients_pb as pb
 from clients.v1.clients_connect import ClientsService, ClientsServiceASGIApplication
+from libs.infra.filtering.filtering import InvalidFilterError
 from libs.infra.runtime.executables import RpcApplication, RpcServiceExecutable
 from modules.clients.domain.client import Client
 from modules.clients.services.clients import (
@@ -35,7 +36,7 @@ class ClientsApiExecutable(RpcServiceExecutable):
     migrations = (migrate_schema,)
 
     def application(self, interceptors: Sequence[MetadataInterceptor[Any]]) -> RpcApplication:
-        clients = create_client_service(self.infra.engine, self.infra.now)
+        clients = create_client_service(self.infra.database, self.infra.now)
         return ClientsServiceASGIApplication(
             ClientsApi(clients, self.infra.auth), interceptors=interceptors
         )
@@ -65,7 +66,9 @@ class ClientsApi(ClientsService):
     ) -> pb.ListClientsResponse:
         user = self._auth.from_ctx(ctx)
         with _connect_errors():
-            page = await self._clients.list(user.id, request.page_size, request.page_token)
+            page = await self._clients.list(
+                user.id, request.page_size, request.page_token, request.filter
+            )
         return pb.ListClientsResponse(
             clients=[_to_message(client) for client in page.clients],
             next_page_token=page.next_page_token,
@@ -129,6 +132,11 @@ def _connect_errors() -> Iterator[None]:
             f"{'.'.join(map(str, problem['loc']))}: {problem['msg']}" for problem in error.errors()
         )
         raise ConnectError(Code.INVALID_ARGUMENT, problems) from None
+    except InvalidFilterError as error:
+        fields = ", ".join(error.valid_paths)
+        raise ConnectError(
+            Code.INVALID_ARGUMENT, f"filter: {error}. Filterable fields: {fields}."
+        ) from None
     except ClientNotFoundError:
         raise ConnectError(Code.NOT_FOUND, "The client does not exist.") from None
     except InvalidPageError:

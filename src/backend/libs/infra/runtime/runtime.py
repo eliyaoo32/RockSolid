@@ -1,11 +1,13 @@
 """Runs a deployable's executables in one process: builds the shared infra once, migrates the
-module schemas, serves every HTTP executable on one server, and stops gracefully on SIGTERM."""
+module schemas, serves every HTTP executable on one server, runs every cron job, and stops
+gracefully on SIGTERM."""
 
 import asyncio
 import re
 import signal
 from collections.abc import MutableMapping, Sequence
 from datetime import UTC, datetime
+from functools import partial
 from typing import Any
 from uuid import uuid4
 
@@ -15,8 +17,10 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from libs.infra.cron.cron import CronRunner, InProcessCronRunner
 from libs.infra.logs.json_logs import configure_logging, request_id
 from libs.infra.runtime.executables import (
+    CronExecutable,
     Executable,
     HttpExecutable,
     Infra,
@@ -54,19 +58,25 @@ async def run(
     configure_logging()
     # Settings reads its required fields from the environment, which Pyright cannot see.
     settings = InfraSettings()  # pyright: ignore[reportCallIssue]
+    now = partial(datetime.now, UTC)
     infra = Infra(
-        engine=create_async_engine(settings.database_url, pool_pre_ping=True),
+        database=create_async_engine(settings.database_url, pool_pre_ping=True),
         auth=create_auth(settings.firebase_project_id),
-        now=lambda: datetime.now(UTC),
+        now=now,
     )
-    runtime = Runtime(executables, infra, settings.port, settings.forwarded_allow_ips)
+    runtime = Runtime(
+        executables,
+        infra,
+        settings.port,
+        settings.forwarded_allow_ips,
+    )
     try:
         if command == "migrate":
             await runtime.migrate()
         else:
             await runtime.serve(stop or asyncio.Event())
     finally:
-        await infra.engine.dispose()
+        await infra.database.dispose()
 
 
 class Runtime:
@@ -76,11 +86,14 @@ class Runtime:
         infra: Infra,
         port: int,
         forwarded_allow_ips: str = "127.0.0.1",
+        cron: CronRunner | None = None,
     ) -> None:
         self._executable_classes = executables
         self._infra = infra
         self._port = port
         self._forwarded_allow_ips = forwarded_allow_ips
+        # Runs every cron job in this process; a test can pass a runner driven by fake time.
+        self._cron = cron or InProcessCronRunner(infra.now)
         self._http: list[HttpExecutable] = []
         self._server: uvicorn.Server | None = None
 
@@ -95,12 +108,13 @@ class Runtime:
         """Migrates every schema the executables need, each once, without building them."""
         migrations = {m: None for e in self._executable_classes for m in e.migrations}
         for migration in migrations:
-            await migration(self._infra.engine)
+            await migration(self._infra.database)
 
     async def serve(self, stop: asyncio.Event) -> None:
         """Serves the HTTP executables until `stop` is set or the process gets SIGTERM or SIGINT."""
         executables = [create(self._infra) for create in self._executable_classes]
         self._http = [e for e in executables if isinstance(e, HttpExecutable)]
+        cron_jobs = [j for e in executables if isinstance(e, CronExecutable) for j in e.jobs()]
         loop = asyncio.get_running_loop()
         for signal_number in (signal.SIGTERM, signal.SIGINT):
             loop.add_signal_handler(signal_number, stop.set)
@@ -117,7 +131,10 @@ class Runtime:
             )
         )
         try:
-            await self._serve_http(stop)
+            async with asyncio.TaskGroup() as tasks:
+                tasks.create_task(self._serve_http(stop))
+                if cron_jobs:
+                    tasks.create_task(self._cron.run(cron_jobs, stop))
         finally:
             for signal_number in (signal.SIGTERM, signal.SIGINT):
                 loop.remove_signal_handler(signal_number)
@@ -172,7 +189,7 @@ class Runtime:
 
     async def _database_reachable(self) -> bool:
         try:
-            async with self._infra.engine.connect() as connection:
+            async with self._infra.database.connect() as connection:
                 await connection.execute(text("SELECT 1"))
         except (OSError, SQLAlchemyError):
             return False

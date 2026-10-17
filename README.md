@@ -119,9 +119,9 @@ Every executable is one of these five types:
 An executable is a class. The runtime knows two kinds:
 
 * **HTTP executables** (RPC services and AI agents) give the runtime their routes, which it mounts on the deployable's one HTTP server.
-* **Background executables** (cron schedulers, tasks consumers, and domain-events listeners) work outside HTTP. Their classes exist, but the runtime does not run them yet: each type gets its behavior with the first feature that needs it.
+* **Background executables** (cron schedulers, tasks consumers, and domain-events listeners) work outside HTTP. Cron schedulers run today; the other types get their behavior with the first feature that needs them.
 
-Each executable type has its own base class under these two, which holds the wiring every executable of that type shares. `RpcServiceExecutable` mounts one ConnectRPC service and signs in every call. Each executable class names the module schemas it needs migrated, so the runtime migrates them without building it.
+Each executable type has its own base class under these two, which holds the wiring every executable of that type shares. `RpcServiceExecutable` mounts one ConnectRPC service and signs in every call. `CronExecutable` holds as many cron jobs as its business area needs. Each executable class names the module schemas it needs migrated, so the runtime migrates them without building it.
 
 ### Deployables
 
@@ -131,6 +131,8 @@ A deployable is a list of the executable classes it runs, in one process. The ru
 * **Two commands in one image:** `migrate` migrates the schemas of every module the executables use, once per release. `serve` starts all the executables.
 * **Health:** `/healthz` answers while the process runs, and `/readyz` answers when the database can be used.
 * **Logs:** every log line is one JSON object on stdout, tagged with the ID of the request it served. Each response carries its request ID in `X-Request-ID`.
+* **Cron jobs:** the runtime hands every cron job to its cron runner, which decides how jobs are triggered. The first runner runs them inside the process; another runner, such as a hosted scheduler, can replace it without changing the executables.
+  [TODO: run each cron job once when a deployable runs more than once. Today every running copy of a deployable runs every job.]
 * **Graceful shutdown:** on SIGTERM, it stops taking new work, lets running work finish, and closes the pools.
 
 ### Dependency Injection
@@ -168,7 +170,7 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 
 * **One expressive syntax:** List methods accept filters in [OData](https://docs.oasis-open.org/odata/odata/v4.01/odata-v4.01-part2-url-conventions.html#sec_SystemQueryOptionfilter) syntax, such as `display_name eq 'Avi'`, and the framework turns them into database queries.
 * **Explicitly filterable:** each resource declares which fields can be filtered and what each one means in the database. API names may differ from database names. Anything not declared cannot be filtered.
-* **Validated before it runs:** an invalid filter is rejected. Agents get an error that tells them how to fix it, and a skill teaches them the syntax.
+* **Validated before it runs:** an invalid filter is rejected with an error that says what is wrong and lists the filterable fields. The filtering skill teaches agents the syntax.
 
 ## Testing
 
@@ -233,6 +235,8 @@ The boilerplate will include the following skills:
 * caveman - AI talks too much, let's simplify it.
 
 * api-design - How to design ConnectRPC APIs: the Google AIPs we follow, the Buf style rules, and the patterns we leave out.
+
+* filtering - The filter syntax List methods accept, and how to make a field filterable.
 
 ### Harness Consistency Check
 

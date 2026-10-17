@@ -5,7 +5,7 @@ import binascii
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel
@@ -50,17 +50,23 @@ class ClientService:
             raise ClientNotFoundError
         return client
 
-    async def list(self, owner_id: UserId, page_size: int, page_token: str) -> ClientsPage:
+    async def list(
+        self, owner_id: UserId, page_size: int, page_token: str, filter: str
+    ) -> ClientsPage:
         if page_size < 0:
             raise InvalidPageError
         limit = min(page_size or DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE)
         after = _decode_page_token(page_token) if page_token else None
         # One extra row tells whether another page exists.
-        clients = await self._repository.list_newest_first(owner_id, limit + 1, after)
+        clients = await self._repository.list_newest_first(owner_id, limit + 1, after, filter)
         if len(clients) <= limit:
             return ClientsPage(clients, "")
         last = clients[limit - 1]
         return ClientsPage(clients[:limit], _encode_page_token(last.create_time, last.id))
+
+    async def count_created_in_the_last_day(self) -> int:
+        """Counts the clients every user created in the 24 hours before now."""
+        return await self._repository.count_created_since(self._now() - timedelta(days=1))
 
     async def create(self, owner_id: UserId, display_name: str, email: str | None) -> Client:
         now = self._now()

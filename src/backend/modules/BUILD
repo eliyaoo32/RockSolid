@@ -11,8 +11,15 @@ __dependencies_rules__(
     ),
     # Repository interfaces: domains only.
     ("/*/repositories/*_repository.py", "//src/backend/modules/*/domain/**", "!*"),
-    # Repository implementations and their tests: their own folder, domains, third parties.
-    ("/*/repositories/**", "./*", "//src/backend/modules/*/domain/**", "//3rdparty/python#*", "!*"),
+    # Repository implementations and their tests: their own folder, domains, filtering, third parties.
+    (
+        "/*/repositories/**",
+        "./*",
+        "//src/backend/modules/*/domain/**",
+        "//src/backend/libs/infra/filtering/**",
+        "//3rdparty/python#*",
+        "!*",
+    ),
     # Setup is the only service that builds implementations and runs migrations.
     (
         "/*/services/setup.py",

@@ -10,6 +10,7 @@ from typing import Any, ClassVar, Protocol
 from connectrpc.interceptor import MetadataInterceptor
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from libs.infra.cron.cron import CronJob
 from modules.users.services.auth import Auth
 
 type Scope = MutableMapping[str, Any]
@@ -23,7 +24,8 @@ type Migration = Callable[[AsyncEngine], Awaitable[None]]
 class Infra:
     """What every executable in the process shares."""
 
-    engine: AsyncEngine
+    # The database: its connection pool, shared by everything in the process.
+    database: AsyncEngine
     auth: Auth
     now: Callable[[], datetime]
 
@@ -45,12 +47,16 @@ class HttpExecutable(Executable, ABC):
 
 
 class BackgroundExecutable(Executable):
-    """An executable that works in the background instead of serving HTTP. Not run yet: each
-    background type gets its behavior with the first feature that needs it."""
+    """An executable that works in the background instead of serving HTTP. Each background type
+    gets its behavior with the first feature that needs it."""
 
 
-class CronSchedulerExecutable(BackgroundExecutable):
-    """Runs jobs at fixed times or intervals."""
+class CronExecutable(BackgroundExecutable, ABC):
+    """Runs jobs on schedules. One executable holds as many jobs as its business area needs."""
+
+    @abstractmethod
+    def jobs(self) -> Sequence[CronJob]:
+        """The executable's jobs. The runtime calls it once, at startup."""
 
 
 class TasksConsumerExecutable(BackgroundExecutable):

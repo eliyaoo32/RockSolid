@@ -1,9 +1,11 @@
 alembic
 asyncpg
 connectrpc
+croniter
 cryptography
 greenlet
 httpx
+odata-query
 protobuf-py
 pydantic-settings
 pydantic[email]
@@ -14,4 +16,5 @@ pytest-cov
 sqlalchemy[asyncio]
 sqlmodel
 testcontainers[postgres]
+types-croniter
 uvicorn[standard]

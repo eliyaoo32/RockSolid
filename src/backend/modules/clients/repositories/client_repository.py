@@ -14,10 +14,15 @@ class ClientRepository(Protocol):
         ...
 
     async def list_newest_first(
-        self, owner_id: UserId, limit: int, after: tuple[datetime, UUID] | None
+        self, owner_id: UserId, limit: int, after: tuple[datetime, UUID] | None, filter: str
     ) -> list[Client]:
-        """Returns up to `limit` of the owner's clients, ordered by (create_time, id),
-        newest first, starting after the given (create_time, id)."""
+        """Returns up to `limit` of the owner's clients that match the OData filter (all of them
+        when it is empty), ordered by (create_time, id), newest first, starting after the given
+        (create_time, id). Raises InvalidFilterError for an invalid filter."""
+        ...
+
+    async def count_created_since(self, since: datetime) -> int:
+        """Returns how many clients, of every owner, were created at or after `since`."""
         ...
 
     async def save(self, client: Client) -> None:

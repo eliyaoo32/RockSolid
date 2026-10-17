@@ -146,7 +146,7 @@ class GetClientResponse(Message[_GetClientResponseFields]):
 
         client: Client | None
 
-_ListClientsRequestFields: TypeAlias = Literal["page_size", "page_token"]
+_ListClientsRequestFields: TypeAlias = Literal["page_size", "page_token", "filter"]
 
 class ListClientsRequest(Message[_ListClientsRequestFields]):
     """
@@ -169,9 +169,16 @@ class ListClientsRequest(Message[_ListClientsRequestFields]):
             ```proto
             string page_token = 2;
             ```
+        filter:
+            An OData filter, such as `display_name eq 'Avi Cohen'`. Filterable fields: display_name,
+            email, create_time, and update_time. Empty returns every client.
+
+            ```proto
+            string filter = 3;
+            ```
     """
 
-    __slots__ = ("page_size", "page_token")
+    __slots__ = ("page_size", "page_token", "filter")
 
     if TYPE_CHECKING:
 
@@ -180,11 +187,13 @@ class ListClientsRequest(Message[_ListClientsRequestFields]):
             *,
             page_size: int = 0,
             page_token: str = "",
+            filter: str = "",
         ) -> None:
             pass
 
         page_size: int
         page_token: str
+        filter: str
 
 _ListClientsResponseFields: TypeAlias = Literal["clients", "next_page_token"]
 
@@ -416,7 +425,7 @@ class DeleteClientResponse(Message[_DeleteClientResponseFields]):
 
 
 _DESC = file_desc(
-    b'\n\x18clients/v1/clients.proto\x12\nclients.v1\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xde\x01\n\x06Client\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12!\n\x0cdisplay_name\x18\x02 \x01(\tR\x0bdisplayName\x12\x19\n\x05email\x18\x03 \x01(\tH\x00R\x05email\x88\x01\x01\x12;\n\x0bcreate_time\x18\x04 \x01(\x0b2\x1a.google.protobuf.TimestampR\ncreateTime\x12;\n\x0bupdate_time\x18\x05 \x01(\x0b2\x1a.google.protobuf.TimestampR\nupdateTimeB\x08\n\x06_email"&\n\x10GetClientRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name"?\n\x11GetClientResponse\x12*\n\x06client\x18\x01 \x01(\x0b2\x12.clients.v1.ClientR\x06client"P\n\x12ListClientsRequest\x12\x1b\n\tpage_size\x18\x01 \x01(\x05R\x08pageSize\x12\x1d\n\npage_token\x18\x02 \x01(\tR\tpageToken"k\n\x13ListClientsResponse\x12,\n\x07clients\x18\x01 \x03(\x0b2\x12.clients.v1.ClientR\x07clients\x12&\n\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken"A\n\x13CreateClientRequest\x12*\n\x06client\x18\x01 \x01(\x0b2\x12.clients.v1.ClientR\x06client"B\n\x14CreateClientResponse\x12*\n\x06client\x18\x01 \x01(\x0b2\x12.clients.v1.ClientR\x06client"~\n\x13UpdateClientRequest\x12*\n\x06client\x18\x01 \x01(\x0b2\x12.clients.v1.ClientR\x06client\x12;\n\x0bupdate_mask\x18\x02 \x01(\x0b2\x1a.google.protobuf.FieldMaskR\nupdateMask"B\n\x14UpdateClientResponse\x12*\n\x06client\x18\x01 \x01(\x0b2\x12.clients.v1.ClientR\x06client")\n\x13DeleteClientRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name"\x16\n\x14DeleteClientResponse2\xad\x03\n\x0eClientsService\x12M\n\tGetClient\x12\x1c.clients.v1.GetClientRequest\x1a\x1d.clients.v1.GetClientResponse"\x03\x90\x02\x01\x12S\n\x0bListClients\x12\x1e.clients.v1.ListClientsRequest\x1a\x1f.clients.v1.ListClientsResponse"\x03\x90\x02\x01\x12Q\n\x0cCreateClient\x12\x1f.clients.v1.CreateClientRequest\x1a .clients.v1.CreateClientResponse\x12Q\n\x0cUpdateClient\x12\x1f.clients.v1.UpdateClientRequest\x1a .clients.v1.UpdateClientResponse\x12Q\n\x0cDeleteClient\x12\x1f.clients.v1.DeleteClientRequest\x1a .clients.v1.DeleteClientResponseb\x06proto3',
+    b'\n\x18clients/v1/clients.proto\x12\nclients.v1\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xde\x01\n\x06Client\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12!\n\x0cdisplay_name\x18\x02 \x01(\tR\x0bdisplayName\x12\x19\n\x05email\x18\x03 \x01(\tH\x00R\x05email\x88\x01\x01\x12;\n\x0bcreate_time\x18\x04 \x01(\x0b2\x1a.google.protobuf.TimestampR\ncreateTime\x12;\n\x0bupdate_time\x18\x05 \x01(\x0b2\x1a.google.protobuf.TimestampR\nupdateTimeB\x08\n\x06_email"&\n\x10GetClientRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name"?\n\x11GetClientResponse\x12*\n\x06client\x18\x01 \x01(\x0b2\x12.clients.v1.ClientR\x06client"h\n\x12ListClientsRequest\x12\x1b\n\tpage_size\x18\x01 \x01(\x05R\x08pageSize\x12\x1d\n\npage_token\x18\x02 \x01(\tR\tpageToken\x12\x16\n\x06filter\x18\x03 \x01(\tR\x06filter"k\n\x13ListClientsResponse\x12,\n\x07clients\x18\x01 \x03(\x0b2\x12.clients.v1.ClientR\x07clients\x12&\n\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken"A\n\x13CreateClientRequest\x12*\n\x06client\x18\x01 \x01(\x0b2\x12.clients.v1.ClientR\x06client"B\n\x14CreateClientResponse\x12*\n\x06client\x18\x01 \x01(\x0b2\x12.clients.v1.ClientR\x06client"~\n\x13UpdateClientRequest\x12*\n\x06client\x18\x01 \x01(\x0b2\x12.clients.v1.ClientR\x06client\x12;\n\x0bupdate_mask\x18\x02 \x01(\x0b2\x1a.google.protobuf.FieldMaskR\nupdateMask"B\n\x14UpdateClientResponse\x12*\n\x06client\x18\x01 \x01(\x0b2\x12.clients.v1.ClientR\x06client")\n\x13DeleteClientRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name"\x16\n\x14DeleteClientResponse2\xad\x03\n\x0eClientsService\x12M\n\tGetClient\x12\x1c.clients.v1.GetClientRequest\x1a\x1d.clients.v1.GetClientResponse"\x03\x90\x02\x01\x12S\n\x0bListClients\x12\x1e.clients.v1.ListClientsRequest\x1a\x1f.clients.v1.ListClientsResponse"\x03\x90\x02\x01\x12Q\n\x0cCreateClient\x12\x1f.clients.v1.CreateClientRequest\x1a .clients.v1.CreateClientResponse\x12Q\n\x0cUpdateClient\x12\x1f.clients.v1.UpdateClientRequest\x1a .clients.v1.UpdateClientResponse\x12Q\n\x0cDeleteClient\x12\x1f.clients.v1.DeleteClientRequest\x1a .clients.v1.DeleteClientResponseb\x06proto3',
     [
         field_mask_pb.desc(),
         timestamp_pb.desc(),

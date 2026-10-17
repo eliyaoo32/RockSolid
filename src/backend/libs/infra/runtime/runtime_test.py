@@ -10,9 +10,10 @@ import pytest
 from connectrpc.interceptor import MetadataInterceptor
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
+from libs.infra.cron.cron import CronJob
 from libs.infra.runtime.executables import (
     ASGIApp,
-    CronSchedulerExecutable,
+    CronExecutable,
     HttpExecutable,
     Infra,
     Receive,
@@ -43,10 +44,30 @@ class EchoApi(HttpExecutable):
         return {"/echo.v1.EchoService": pong}
 
 
-class Reminders(CronSchedulerExecutable):
-    """A background executable: built and accepted, not run yet."""
+class Reminders(CronExecutable):
+    """A cron executable with two jobs."""
 
     migrations = (migrate_shared_schema,)
+
+    def jobs(self) -> Sequence[CronJob]:
+        return [CronJob("*/5 * * * *", self.send_due), CronJob("0 3 * * *", self.purge_old)]
+
+    async def send_due(self) -> None: ...
+
+    async def purge_old(self) -> None: ...
+
+
+class RecordingCron:
+    """A cron runner that records the jobs it was given and returns once stopped."""
+
+    def __init__(self) -> None:
+        self.jobs: dict[str, str] = {}
+        self.started = asyncio.Event()
+
+    async def run(self, jobs: Sequence[CronJob], stop: asyncio.Event) -> None:
+        self.jobs = {job.name: job.schedule for job in jobs}
+        self.started.set()
+        await stop.wait()
 
 
 class FakeRpcApplication:
@@ -68,11 +89,15 @@ class GreetApi(RpcServiceExecutable):
         return FakeRpcApplication(interceptors)
 
 
+def now() -> datetime:
+    return datetime.now(UTC)
+
+
 def make_infra(database_url: str) -> Infra:
     return Infra(
-        engine=create_async_engine(database_url),
+        database=create_async_engine(database_url),
         auth=create_auth("rocksolid-test"),
-        now=lambda: datetime.now(UTC),
+        now=now,
     )
 
 
@@ -80,7 +105,7 @@ def make_infra(database_url: str) -> Infra:
 async def infra(database_url: str) -> AsyncIterator[Infra]:
     infra = make_infra(database_url)
     yield infra
-    await infra.engine.dispose()
+    await infra.database.dispose()
 
 
 async def serving(runtime: Runtime, stop: asyncio.Event) -> asyncio.Task[None]:
@@ -96,7 +121,7 @@ async def test_migrates_each_schema_once_without_building_the_executables(infra:
 
     await Runtime([EchoApi, Reminders], infra, port=0).migrate()
 
-    assert migrated == [infra.engine]
+    assert migrated == [infra.database]
 
 
 async def test_serves_routes_and_health_until_stopped(infra: Infra) -> None:
@@ -167,7 +192,7 @@ async def test_is_not_ready_while_the_database_cannot_be_used(
 
     stop.set()
     await task
-    await infra.engine.dispose()
+    await infra.database.dispose()
 
 
 async def test_stops_gracefully_on_sigterm(infra: Infra) -> None:
@@ -208,3 +233,16 @@ async def test_runs_the_serve_command_until_stopped() -> None:
 async def test_rejects_an_unknown_command() -> None:
     with pytest.raises(SystemExit, match="usage"):
         await run(["deploy"], [EchoApi])
+
+
+async def test_hands_every_cron_job_to_the_cron_runner(infra: Infra) -> None:
+    cron = RecordingCron()
+    stop = asyncio.Event()
+    task = await serving(Runtime([EchoApi, Reminders], infra, port=0, cron=cron), stop)
+
+    async with asyncio.timeout(10):
+        await cron.started.wait()
+    stop.set()
+    await task
+
+    assert cron.jobs == {"send_due": "*/5 * * * *", "purge_old": "0 3 * * *"}

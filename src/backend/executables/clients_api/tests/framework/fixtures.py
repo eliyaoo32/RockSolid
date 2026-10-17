@@ -10,9 +10,10 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from clients.v1.clients_connect import ClientsServiceClient
 from executables.clients_api.clients_api import ClientsApiExecutable
-from executables.clients_api.tests.framework.driver import ClientsDriver, FakeClock
+from executables.clients_api.tests.framework.driver import ClientsDriver
 from libs.infra.runtime.executables import Infra
 from libs.infra.runtime.runtime import Runtime
+from libs.testing.time import FakeTime
 from modules.users.domain.user import User
 from modules.users.services.auth import Auth
 
@@ -31,11 +32,15 @@ class FakeUsers:
 
 @pytest.fixture
 async def driver(database_url: str) -> AsyncIterator[ClientsDriver]:
-    engine = create_async_engine(database_url)
-    clock = FakeClock(START)
-    runtime = Runtime([ClientsApiExecutable], Infra(engine, Auth(FakeUsers()), clock), port=0)
+    database = create_async_engine(database_url)
+    clock = FakeTime(START)
+    runtime = Runtime(
+        [ClientsApiExecutable],
+        Infra(database, Auth(FakeUsers()), clock),
+        port=0,
+    )
     await runtime.migrate()
-    async with engine.begin() as connection:
+    async with database.begin() as connection:
         await connection.execute(text("TRUNCATE clients.clients"))
     stop = asyncio.Event()
     serving = asyncio.create_task(runtime.serve(stop))
@@ -46,4 +51,4 @@ async def driver(database_url: str) -> AsyncIterator[ClientsDriver]:
         yield ClientsDriver(api, clock)
     stop.set()
     await serving
-    await engine.dispose()
+    await database.dispose()
