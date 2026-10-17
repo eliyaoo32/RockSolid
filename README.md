@@ -128,7 +128,6 @@ A deployable is a runtime bootstrapper: it lists the executables it runs, create
 * Only the deployable creates infra: database pools, HTTP clients, and RPC clients. It passes the instances down to its executables.
 * The deployable reads the URIs of databases and of other deployables from environment variables. No other code reads configuration.
 * All executables in a deployable share one database pool.
-* A client calling a service in the same deployable goes in-process (httpx ASGI transport) instead of over the network.
 
 ### `libs/infra`
 

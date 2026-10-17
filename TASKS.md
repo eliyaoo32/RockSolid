@@ -10,6 +10,7 @@
     - [ ] Enable Pants Python, Ruff, Pyright, visibility backends
     - [ ] Pin the Python version and lock dependencies
     - [ ] Add a Pants verify alias for all goals
+    - [ ] Add a Makefile verifying backend and frontend
     - [ ] Write Pants visibility rules for the tiers
     - [ ] Forbid ORM imports in module domain code
     - [ ] Add mutation testing for domain code
@@ -17,9 +18,10 @@
     - [ ] Add GitHub Actions workflow running verify
 
 - [ ] Contracts
-    - [ ] Enable Pants protobuf and Buf backends
+    - [ ] Enable the Pants Buf lint backend
     - [ ] Add Buf breaking-change detection to verify
-    - [ ] Generate Python ConnectRPC code from protos
+    - [ ] Generate and commit ConnectRPC code with buf
+    - [ ] Fail verify when generated code is stale
     - [ ] Generate TypeScript client from protos
     - [ ] Validate requests with buf.validate
 
@@ -39,7 +41,6 @@
     - [ ] Build the cron scheduler runtime
     - [ ] Build the tasks queue on Postgres
     - [ ] Build the domain events bus on Postgres
-    - [ ] Add in-process RPC client via ASGI transport
     - [ ] Build the AI agent runtime with Pydantic AI
 
 - [ ] AI agent framework
@@ -74,7 +75,7 @@
 - [ ] Testing infra
     - [ ] Run ephemeral Postgres in tests with testcontainers
     - [ ] Boot executables in tests with injected fakes
-    - [ ] Build a fake in-process RPC service
+    - [ ] Build a fake RPC service for tests
     - [ ] Replay recorded third-party HTTP responses
     - [ ] Build fake third-party servers for E2E
     - [ ] Build a fake Firebase token verifier
