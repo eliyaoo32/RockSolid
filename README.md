@@ -190,13 +190,19 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 
 * Frontend in React + Vite - No need for frontend server since the expectation is that the frontend will be simple and without much of business-logic, everything should be done on the backend and the frontend only display data from backend or send actions to the backend.
 
+* pnpm workspace - `src/frontend`, `src/wireframe`, and the TypeScript generated from the contracts (`src/generated/typescript`, imported as `@rocksolid/api`) are one pnpm workspace.
+
+* React Router, TanStack Query, and Connect - The frontend routes every screen by URL, caches backend data with TanStack Query, and calls the backend through clients generated from the contracts.
+
+* ESLint, Prettier, and Vitest - Strict type-checked lint rules, one code format, and tests held at 100% coverage.
+
 * Pydantic AI - Framework for building AI agents, with `pydantic-evals` for measuring their quality.
 
 * Pydantic - Domain models with built-in validation and strict typing.
 
 * SQLModel - ORM for the database tables. Built on Pydantic, like the domain models.
 
-* Firebase authentication - Integrate very easily with the AI, a lot of authentications features are available out of the box. The backend verifies Firebase ID tokens itself, with PyJWT and Google's public keys.
+* Firebase authentication - Integrate very easily with the AI, a lot of authentications features are available out of the box. The backend verifies Firebase ID tokens itself, with PyJWT and Google's public keys. The frontend uses Firebase only to sign in and to get the ID token; the backend is the source of truth about the user.
 
 * Shadcn - It's has most of the components we will need, very good for building beatiful applications, agents work with it well.
 

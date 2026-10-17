@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package users.v1;
+
+// Tells the signed-in caller who they are. The backend is the source of truth about users.
+service UsersService {
+  // Returns the user who makes the call.
+  rpc GetCurrentUser(GetCurrentUserRequest) returns (GetCurrentUserResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+}
+
+// A person who signs in to the product.
+message User {
+  // The resource name, such as `users/8f3a2c`. Output only.
+  string name = 1;
+  // The user's name, as the product shows it. Output only.
+  string display_name = 2;
+  // The user's email address. Output only.
+  string email = 3;
+}
+
+// The request for GetCurrentUser. The caller's sign-in says who they are.
+message GetCurrentUserRequest {}
+
+// The response for GetCurrentUser.
+message GetCurrentUserResponse {
+  // The user who made the call.
+  User user = 1;
+}

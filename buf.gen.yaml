@@ -6,3 +6,7 @@ plugins:
     out: src/generated/python
   - remote: buf.build/connectrpc/py:v0.12.1
     out: src/generated/python
+  # Generates messages and service descriptors that Connect clients use; the version matches @bufbuild/protobuf.
+  - remote: buf.build/bufbuild/es:v2.16.0
+    out: src/generated/typescript
+    opt: target=ts

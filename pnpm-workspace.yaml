@@ -1,0 +1,10 @@
+packages:
+  - src/frontend
+  - src/wireframe
+  - src/generated/typescript
+
+allowBuilds:
+  esbuild: true
+  # Firebase install scripts only prepare server-side defaults; the browser build does not use them.
+  "@firebase/util": false
+  protobufjs: false

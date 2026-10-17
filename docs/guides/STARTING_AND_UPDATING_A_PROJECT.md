@@ -13,9 +13,9 @@ A project is a clone of RockSolid that keeps RockSolid's git history. RockSolid 
 
 | Owner | Files | Edited by |
 |---|---|---|
-| Framework | `AGENTS.md` (and `CLAUDE.md`, its link), `.agents/`, `.claude/`, `.pi/`, `README.md`, `docs/guides/`, `docs/features/FEATURE_TEMPLATE.md`, `Makefile`, `buf.yaml`, `buf.gen.yaml`, `.github/workflows/`, `src/backend/libs/` | RockSolid only |
-| Shared | `3rdparty/python/requirements.txt`, `3rdparty/python/default.lock`, `pants.toml`, `.gitignore` | Both. The update resolves their conflicts as described below. |
-| Project | `docs/features/<NNN>_*.md`, `src/protos/<module>/`, `src/generated/`, `src/backend/modules/<module>/`, `src/backend/executables/`, `src/backend/deployables/`, `src/frontend/`, `src/e2e/` | The project only |
+| Framework | `AGENTS.md` (and `CLAUDE.md`, its link), `.agents/`, `.claude/`, `.pi/`, `README.md`, `docs/guides/`, `docs/features/FEATURE_TEMPLATE.md`, `Makefile`, `buf.yaml`, `buf.gen.yaml`, `.github/workflows/`, `pnpm-workspace.yaml`, `src/backend/libs/`, `src/backend/modules/users/`, `src/backend/executables/users_api/`, `src/protos/users/`; in `src/frontend/` and `src/wireframe/`: `vite.config.ts`, `tsconfig*.json`, `eslint.config.js`, `eslint-rules/`, `.prettierrc`, `components.json`, `main.tsx`; and `src/frontend/src/{auth,api}/`, `src/frontend/src/config.ts`, `src/frontend/tests/framework/` | RockSolid only |
+| Shared | `3rdparty/python/requirements.txt`, `3rdparty/python/default.lock`, `pants.toml`, `.gitignore`, every `package.json`, `pnpm-lock.yaml`, `src/backend/deployables/backend/main.py`, `src/frontend/src/App.tsx`, `src/wireframe/src/App.tsx`, both apps' `src/i18n/resources.ts`, `src/wireframe/README.md` | Both. The update resolves their conflicts as described below. |
+| Project | `docs/features/<NNN>_*.md`, `src/protos/<module>/`, `src/generated/`, `src/backend/modules/<module>/`, the other `src/backend/executables/`, the rest of `src/backend/deployables/` and of `src/frontend/` and `src/wireframe/`, `src/e2e/` | The project only |
 
 ## Start a Project
 
@@ -54,10 +54,15 @@ GitHub's "Use this template" starts a repository with no shared history, so late
 3. Resolve the conflicts in the shared files:
    - `requirements.txt`: keep the lines from both sides.
    - `default.lock`: take the framework's version (`git checkout --theirs 3rdparty/python/default.lock`). The next step regenerates it.
+   - `package.json`, `main.py`, `App.tsx`, and `resources.ts`: keep the dependencies, executables, routes, and keys from both sides.
+   - `pnpm-lock.yaml`: take the framework's version (`git checkout --theirs pnpm-lock.yaml`). The next step regenerates it.
    - `pants.toml` and `.gitignore`: keep both sides' changes.
 4. Regenerate everything generated, whether or not it conflicted, since the merged requirements and contracts can differ from both sides:
    ```bash
    pants generate-lockfiles
+   ```
+   ```bash
+   pnpm install
    ```
    ```bash
    make generate

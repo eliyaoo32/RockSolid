@@ -4,3 +4,10 @@ dist/
 
 # Pi plugin clones; .pi/settings.json declares them
 /.pi/git/
+
+# Node packages and their outputs
+node_modules/
+coverage/
+
+# Local environment; .env.example lists the variables
+.env
