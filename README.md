@@ -81,6 +81,7 @@ Before a feature is built, the agent and the owner discuss it and write down wha
 * **Collaboration:** the blueprint is written together by a human engineer and an AI agent.
 * **Contracts:** the feature's `.proto` files are added in the same pull request as the blueprint.
 * **Size:** at most 1,500 lines. A bigger feature is split into smaller features.
+* **Living documents:** a blueprint always describes how its feature works today, not only what was decided at the start.
 
 # Framework
 
@@ -190,6 +191,16 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 
 ## AI Skills and Instructions
 
+### Where Guidelines Live
+
+* **`README.md`** states the principles and describes the framework.
+* **`AGENTS.md`** holds the concrete rules that apply to every task.
+* **Skills** hold the detail that only some tasks need. Each skill declares when it is used, so nothing has to point to it.
+* **A rule that a tool enforces is not written down.** The tool is the rule.
+* **Each rule lives in one place** and is never repeated in another.
+
+### Harnesses and Skills
+
 The skills and instructions should be available for the following harnesses:
 1. Claude Code
 2. Antigravity
@@ -204,6 +215,8 @@ The boilerplate will include the following skills:
 * ui-ux-pro-max - Has many UI UX examples and can be helpful to find what's a good way to create UI/UX.
 
 * caveman - AI talks too much, let's simplify it.
+
+* api-design - How to design ConnectRPC APIs: the Google AIPs we follow, the Buf style rules, and the patterns we leave out.
 
 ### Harness Consistency Check
 

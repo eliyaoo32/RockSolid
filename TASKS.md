@@ -1,6 +1,6 @@
 # Tasks
 
-- [ ] Take inspirations and ideas from [peva3/anchor](https://github.com/peva3/anchor)
+- [-] Take inspirations and ideas from [peva3/anchor](https://github.com/peva3/anchor)
 
 - [ ] Repository foundation
     - [ ] Create modules, libs, executables, deployables folders
@@ -55,6 +55,7 @@
 - [ ] Deployables
     - [ ] Define how the bootstrapper works
     - [ ] Build the generic deployable bootstrapper
+    - [ ] Decide how deployables load and validate configuration
     - [ ] Load deployable config from environment variables
     - [ ] Handle graceful startup and shutdown
     - [ ] Package each deployable as a Docker image
@@ -92,8 +93,8 @@
     - [ ] Write AGENTS.md with structure and guidelines
     - [ ] Port harness consistency checker from EasyTivuch
     - [ ] Add a skill for writing blueprints
-    - [ ] Add an API design skill (AIPs and Buf)
-    - [ ] Link .claude/skills to .agents/skills
+    - [x] Add an API design skill (AIPs and Buf)
+    - [x] Link .claude/skills to .agents/skills
     - [ ] Install the Ponytail skill
     - [ ] Install the shadcn skill
     - [ ] Install the ui-ux-pro-max skill
