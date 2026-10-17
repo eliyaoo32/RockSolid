@@ -1,0 +1,32 @@
+# Import rules for every executable, written once. An executable uses modules through their
+# services and the domain types they return, and never imports another executable.
+__dependencies_rules__(
+    (
+        "/*/tests/framework/**",
+        "./*",
+        "../../*.py",
+        "//src/modules/*/services/**",
+        "//src/modules/*/domain/**",
+        "//src/generated/**",
+        "//3rdparty/python#*",
+        "!*",
+    ),
+    (
+        "/*/tests/**",
+        "./**",
+        "//src/modules/*/services/**",
+        "//src/modules/*/domain/**",
+        "//src/generated/**",
+        "//3rdparty/python#*",
+        "!*",
+    ),
+    (
+        "*",
+        "./*",
+        "//src/modules/*/services/**",
+        "//src/modules/*/domain/**",
+        "//src/generated/**",
+        "//3rdparty/python#*",
+        "!*",
+    ),
+)

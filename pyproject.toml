@@ -25,3 +25,4 @@ omit = ["src/generated/*", "src/deployables/*"]
 
 [tool.coverage.report]
 omit = ["src/generated/*", "src/deployables/*"]
+

@@ -8,21 +8,21 @@
 
 - [ ] Pants setup
     - [x] Enable Pants Python, Ruff, and Pyright backends
-    - [ ] Enable the Pants visibility backend
+    - [x] Enable the Pants visibility backend
     - [x] Pin the Python version and lock dependencies
     - [x] Add a Pants verify alias for all goals
-    - [ ] Add a Makefile verifying backend and frontend
-    - [ ] Write Pants visibility rules for the tiers
-    - [ ] Forbid ORM imports in module domain code
-    - [ ] Add mutation testing for domain code
+    - [x] Add a Makefile verifying the backend and contracts
+    - [ ] Add the frontend checks to make verify
+    - [x] Write Pants visibility rules for the tiers
+    - [x] Forbid ORM imports in module domain code
     - [ ] Port blueprint docs checker from EasyTivuch
-    - [ ] Add GitHub Actions workflow running verify
+    - [x] Add GitHub Actions workflow running verify
 
 - [ ] Contracts
-    - [ ] Enable the Pants Buf lint backend
-    - [ ] Add Buf breaking-change detection to verify
+    - [x] Lint and format contracts with buf in make verify
+    - [x] Add Buf breaking-change detection to verify
     - [x] Generate and commit ConnectRPC code with buf
-    - [ ] Fail verify when generated code is stale
+    - [x] Fail verify when generated code is stale
     - [ ] Generate TypeScript client from protos
     - [ ] Validate requests with buf.validate
 

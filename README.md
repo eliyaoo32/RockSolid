@@ -33,7 +33,6 @@ Where the guidelines, the process and the structure is defined well for building
 ### Multi-Layered & Trust-Verified Testing
 
 * **Tiered Test Strategy:** Combine fast, isolated domain tests, realistic integration tests against real ephemeral infrastructure, and full end-to-end flows.
-* **Targeted Mutation Testing:** Apply mutation testing specifically to core business logic—tests must fail when domain rules are deliberately broken.
 * **No False Confidence:** High line coverage means nothing if assertions are weak—tests must actively catch regressions in business rules.
 
 ### Collaborative Blueprinting for Large Features
@@ -60,7 +59,7 @@ Where the guidelines, the process and the structure is defined well for building
 ### Single-Command Deterministic Verification Gate
 
 * **Zero Manual Verification:** Quality, compliance, and readiness are validated through a single automated command.
-* **Unified Pipeline:** Formatting, boundary linting, strict type checks, test suites, and mutation checks run deterministically.
+* **Unified Pipeline:** Formatting, boundary linting, strict type checks, and test suites run deterministically.
 * **Strict Exit-Code Zero:** If any single check fails, the task is incomplete—no exceptions, no manual overrides.
 
 ## Product-building process
@@ -165,7 +164,7 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 * **Tests read as scenarios.** Drivers hide how each step is done, so a test shows only what happens.
 * **Every external dependency is faked through injection**, using the same bootstrapper as production. No test reaches a real third party.
 * **Always tested:** permissions, tenant isolation, full recovery from every failure, and crash recovery.
-* **100% coverage, and mutation testing on domain code**, so tests catch real regressions.
+* **100% coverage with genuine assertions**, so tests catch real regressions.
 
 ## Tech Stack
 

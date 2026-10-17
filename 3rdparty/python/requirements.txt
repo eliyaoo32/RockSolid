@@ -1,6 +1,7 @@
 alembic
 asyncpg
 connectrpc
+cryptography
 greenlet
 protobuf-py
 pydantic-settings

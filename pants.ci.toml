@@ -1,0 +1,11 @@
+# CI-only settings, added on top of pants.toml. init-pants loads this file automatically.
+
+[GLOBAL]
+colors = true
+
+[stats]
+# Prints cache hits and time saved, to show whether CI caching works.
+log = true
+
+[pytest]
+args = ["-vv", "--no-header"]

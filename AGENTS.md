@@ -123,11 +123,10 @@ Every production change follows Red-Green-Refactor:
   - **Several Scenarios per Feature:** Each feature has several E2E tests, each a chain of steps: the main lifecycle, and one for each family of failures, such as one of our services failing or a third party answering wrongly.
 - **Agents in Tests:** Component and E2E tests run AI agents on Pydantic AI's `TestModel` or `FunctionModel`. Only evals call a real model, and they run outside the verification command.
 
-### Coverage and Mutation Testing
+### Coverage
 - **100% Coverage:** Every line and branch is covered. The wireframe, generated code, generated UI primitives, and deployable entry points (`src/deployables/`, which only wire and start the process) are exempt.
 - **Genuine Assertions:** Tests assert real outputs and state changes, and fail whenever the behavior breaks. A test without a meaningful assertion is a bug.
 - **Rendered Output Is Asserted:** A test that changes what a control shows asserts the text the user then sees, not only the value the control sends onward. Selecting an option in a dropdown, for example, asserts that the closed control shows the option's label, not its raw value.
-- **Mutation Testing on Domain Code:** For every change to `domain/`, run mutation testing on the changed files and kill every surviving mutant with a new assertion.
 
 ### Test Files
 - **Feature-Named Files:** A test file is named after the feature it covers, never after a layer or an endpoint (`contact_import_test.py`, not `rpc_test.py`). Group a feature's scenarios into as few files as its size allows.

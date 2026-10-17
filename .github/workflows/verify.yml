@@ -1,0 +1,39 @@
+# Runs the single verification command on every pull request and on main.
+# Follows https://www.pantsbuild.org/stable/docs/using-pants/using-pants-in-ci.
+# Actions are pinned by commit; the comment names the release.
+name: verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0 # `buf breaking` compares the contracts with origin/main.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.14"
+      # Installs Pants and caches its launcher, its named caches, and its local process cache.
+      - uses: pantsbuild/actions/init-pants@0aaef864bd133c4055feb6adad0bfdce0de1c2e4 # v11
+        with:
+          gha-cache-key: v0 # Bump to start from empty caches.
+          named-caches-hash: ${{ hashFiles('3rdparty/python/default.lock') }}
+          cache-lmdb-store: "true"
+      - name: Install buf
+        run: |
+          curl -fsSL -o /usr/local/bin/buf \
+            "https://github.com/bufbuild/buf/releases/download/v1.66.0/buf-Linux-x86_64"
+          chmod +x /usr/local/bin/buf
+      # Docker is preinstalled on the runner; the component tests start Postgres with it.
+      - run: make verify BASE=origin/main
+      - name: Upload the Pants log
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: pants-log
+          path: .pants.d/workdir/pants.log

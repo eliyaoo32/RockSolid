@@ -7,6 +7,7 @@ backend_packages = [
   "pants.backend.experimental.python.typecheck.pyright",
   "pants.backend.build_files.fmt.ruff",
   "pants.backend.docker",
+  "pants.backend.experimental.visibility",
 ]
 
 [source]
