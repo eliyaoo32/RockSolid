@@ -1,8 +1,10 @@
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
 from modules.clients.domain.client import Client
+from modules.clients.domain.client_events import ClientCreated
 from modules.users.domain.user import UserId
 
 
@@ -25,8 +27,9 @@ class ClientRepository(Protocol):
         """Returns how many clients, of every owner, were created at or after `since`."""
         ...
 
-    async def save(self, client: Client) -> None:
-        """Adds the client, or replaces it when it exists."""
+    async def save(self, client: Client, events: Sequence[ClientCreated] = ()) -> None:
+        """Adds the client, or replaces it when it exists, and publishes the events in the same
+        transaction: both are saved, or neither is."""
         ...
 
     async def delete(self, owner_id: UserId, client_id: UUID) -> bool:

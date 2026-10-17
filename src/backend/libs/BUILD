@@ -5,6 +5,7 @@ __dependencies_rules__(
         "/infra/runtime/**",
         "./*",
         "//src/backend/libs/infra/cron/**",
+        "//src/backend/libs/infra/events/**",
         "//src/backend/libs/infra/logs/**",
         "//src/backend/libs/testing/**",
         "//src/backend/modules/users/services/**",
@@ -15,8 +16,20 @@ __dependencies_rules__(
     (
         {"type": "python_test*", "path": "/infra/**"},
         "./*",
+        "//src/backend/libs/infra/events/**",
         "//src/backend/libs/infra/logs/**",
         "//src/backend/libs/testing/**",
+        "//3rdparty/python#*",
+        "!*",
+    ),
+    # The events lib reuses the cron lib's wait, and keeps its migrations next to it.
+    (
+        "/infra/events/**",
+        "./*",
+        "./migrations",
+        "./migrations/**",
+        "//src/backend/libs/infra/cron/**",
+        "//src/backend/libs/infra/logs/**",
         "//3rdparty/python#*",
         "!*",
     ),

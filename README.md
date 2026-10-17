@@ -19,7 +19,7 @@ Where the guidelines, the process and the structure is defined well for building
 
 ### Contract-First & Strict Typing
 
-* **Contracts Precede Code:** All network APIs, shared payloads, and event schemas must be formally defined as contracts before writing application code.
+* **Contracts Precede Code:** All network APIs and shared payloads must be formally defined as contracts before writing application code. Domain events are contracts too: typed Pydantic models in the publishing module's domain, which only backend modules consume.
 * **End-to-End Type Safety:** Strict typing is enforced everywhere; untyped data structures and dynamic bypasses are banned.
 * **Single Source of Truth:** Code stubs, client models, and server handlers derive strictly from the agreed-upon contracts.
 
@@ -133,6 +133,8 @@ A deployable is a list of the executable classes it runs, in one process. The ru
 * **Logs:** every log line is one JSON object on stdout, tagged with the ID of the request it served. Each response carries its request ID in `X-Request-ID`.
 * **Cron jobs:** the runtime hands every cron job to its cron runner, which decides how jobs are triggered. The first runner runs them inside the process; another runner, such as a hosted scheduler, can replace it without changing the executables.
   [TODO: run each cron job once when a deployable runs more than once. Today every running copy of a deployable runs every job.]
+* **Domain events:** a module publishes an event in the same transaction as the change it describes, into one event log in Postgres. The runtime delivers every listener executable's subscriptions from that log: each subscription has its own cursor, receives its event type in order, at least once, and is retried with backoff when its handler fails, until the event is parked. Only one running copy of a deployable delivers each subscription. Another bus, such as a hosted broker, can replace the Postgres one without changing listeners.
+  [TODO: clean up old events. Today the event log keeps every event forever.]
 * **Graceful shutdown:** on SIGTERM, it stops taking new work, lets running work finish, and closes the pools.
 
 ### Dependency Injection

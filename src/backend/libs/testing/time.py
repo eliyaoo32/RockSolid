@@ -1,7 +1,7 @@
 """Time that moves only when a test moves it."""
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timedelta
 
 
@@ -36,8 +36,12 @@ class FakeTime:
                 task.cancel()
 
 
-async def eventually(check: Callable[[], bool], timeout: float = 5) -> None:
-    """Waits until `check()` is true, or fails the test after `timeout` seconds."""
+async def eventually(check: Callable[[], bool | Awaitable[bool]], timeout: float = 5) -> None:
+    """Waits until `check()` is true, or fails the test after `timeout` seconds. The check may
+    be async, such as a database query."""
     async with asyncio.timeout(timeout):
-        while not check():
+        while True:
+            result = check()
+            if await result if isinstance(result, Awaitable) else result:
+                return
             await asyncio.sleep(0.01)

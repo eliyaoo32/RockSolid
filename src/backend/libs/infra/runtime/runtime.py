@@ -18,9 +18,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from libs.infra.cron.cron import CronRunner, InProcessCronRunner
+from libs.infra.events.events import EventBus, PostgresEventBus, migrate_event_log
 from libs.infra.logs.json_logs import configure_logging, request_id
 from libs.infra.runtime.executables import (
     CronExecutable,
+    DomainEventsListenerExecutable,
     Executable,
     HttpExecutable,
     Infra,
@@ -87,6 +89,7 @@ class Runtime:
         port: int,
         forwarded_allow_ips: str = "127.0.0.1",
         cron: CronRunner | None = None,
+        events: EventBus | None = None,
     ) -> None:
         self._executable_classes = executables
         self._infra = infra
@@ -94,6 +97,8 @@ class Runtime:
         self._forwarded_allow_ips = forwarded_allow_ips
         # Runs every cron job in this process; a test can pass a runner driven by fake time.
         self._cron = cron or InProcessCronRunner(infra.now)
+        # Delivers every domain event subscription; a test can pass a bus driven by fake time.
+        self._events = events or PostgresEventBus(infra.database, infra.now)
         self._http: list[HttpExecutable] = []
         self._server: uvicorn.Server | None = None
 
@@ -105,7 +110,9 @@ class Runtime:
         return self._server.servers[0].sockets[0].getsockname()[1]
 
     async def migrate(self) -> None:
-        """Migrates every schema the executables need, each once, without building them."""
+        """Migrates the event log, which every module may publish to, then every schema the
+        executables need, each once, without building them."""
+        await migrate_event_log(self._infra.database)
         migrations = {m: None for e in self._executable_classes for m in e.migrations}
         for migration in migrations:
             await migration(self._infra.database)
@@ -115,6 +122,16 @@ class Runtime:
         executables = [create(self._infra) for create in self._executable_classes]
         self._http = [e for e in executables if isinstance(e, HttpExecutable)]
         cron_jobs = [j for e in executables if isinstance(e, CronExecutable) for j in e.jobs()]
+        subscriptions = [
+            s
+            for e in executables
+            if isinstance(e, DomainEventsListenerExecutable)
+            for s in e.subscriptions()
+        ]
+        names = [subscription.name for subscription in subscriptions]
+        if repeated := sorted({name for name in names if names.count(name) > 1}):
+            # A subscription's name keeps its place in the event log, so two would share one.
+            raise ValueError(f"two subscriptions are named {', '.join(repeated)}")
         loop = asyncio.get_running_loop()
         for signal_number in (signal.SIGTERM, signal.SIGINT):
             loop.add_signal_handler(signal_number, stop.set)
@@ -135,6 +152,8 @@ class Runtime:
                 tasks.create_task(self._serve_http(stop))
                 if cron_jobs:
                     tasks.create_task(self._cron.run(cron_jobs, stop))
+                if subscriptions:
+                    tasks.create_task(self._events.run(subscriptions, stop))
         finally:
             for signal_number in (signal.SIGTERM, signal.SIGINT):
                 loop.remove_signal_handler(signal_number)
