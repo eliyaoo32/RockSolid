@@ -29,10 +29,11 @@
 ```
 3rdparty/python/               # Python requirements and their Pants targets
 docs/                          # blueprints and their template
-src/protos/<module>/v1/        # contracts
+src/protos/<module>/v1/        # contracts, only .proto files
+src/generated/<language>/      # code generated from the contracts, one folder per language
 src/modules/<module>/          # one business module
 src/modules/shared/domain/     # value objects and enums shared by several modules
-src/libs/infra/<importer>/     # runtime machinery, by the tier that may import it
+src/libs/infra/<capability>/   # technical capabilities, one folder each (db/, events/)
 src/libs/testing/              # fakes and helpers shared by tests
 src/executables/<name>/        # one executable, with its component tests in tests/
 src/deployables/<name>/        # one deployable and its configuration
@@ -41,6 +42,8 @@ src/wireframe/                 # the approved look and feel
 src/e2e/                       # the E2E package
 ```
 - **All Source Code Under `src/`:** Every package, module, and app lives under `src/`. Only repository-wide configuration, `3rdparty/`, and `docs/` sit at the root.
+- **Modules Share Only Their Domain:** A module imports another module's `domain/` (entities, value objects, IDs, and events) and nothing else. Executables and deployables use a module only through its `services/`.
+- **Libraries Are Organized by Capability:** A capability's interface, provider implementations, and interceptors live together in `src/libs/infra/<capability>/`, never in a folder named after the tier that imports or creates them. A capability with business meaning, such as signing users in, is a module.
 - **Shared Domain Holds Only Value Objects and Enums:** `src/modules/shared/domain/` never holds entities, services, or repositories.
 - **Executables Are Named After Their Job:** An executable's folder name says what it does (`contacts_api`, `contacts_assistant`), never its type.
 
@@ -54,14 +57,19 @@ src/e2e/                       # the E2E package
 - **The Domain Knows No Vendors:** Domain code, its comments, its test names, and its limits never mention or depend on a provider or tool, such as an auth provider, a database, an ORM, or a cloud. The domain states its own rules, and the adapter that talks to the provider maps the provider's values to the domain's.
 - **Value Objects Stay Nested:** A value object has no ID and no lifecycle, and it may carry logic. An entity holds each value object as one nested object, in the domain and in the API, never as its fields flattened into the entity. A value object used by several modules lives in `src/modules/shared/domain/`.
 - **Value Objects Are Prefixed Columns:** In the database, a value object's fields are columns prefixed with the name of the entity field that holds it (`address_city`, `address_street`). The repository maps them.
-- **Repositories:** The repository interface lives in `domain/`. The implementation lives in `repositories/`, with SQLModel table models (`table=True`). It converts with `model_validate` (`Contact.model_validate(row, from_attributes=True)` and `ContactRow.model_validate(contact)`), and maps by hand only the fields whose name or shape differ, such as value-object columns.
+- **Repositories:** A repository's interface and its implementation both live in `repositories/`, in separate files (`client_repository.py` and `postgres_clients.py`). Application services import only the interface; only the module's `services/setup.py` imports an implementation. The implementation talks to a database or a provider's API: `postgres_clients.py` stores clients, and `firebase_users.py` signs users in. A database repository uses SQLModel table models (`table=True`). It converts with `model_validate` (`Contact.model_validate(row, from_attributes=True)` and `ContactRow.model_validate(contact)`), and maps by hand only the fields whose name or shape differ, such as value-object columns.
 - **Whole Aggregates:** A repository loads and saves a whole aggregate, never part of it.
 - **References by ID:** An aggregate refers to another aggregate by its ID. Table models declare no `Relationship()` across aggregates; joins exist only for reads and filters.
 - **Injected Clock:** Code never reads the current time directly. It gets a clock through injection.
 
+### Services and Interceptors
+- **Capabilities Are Services:** An executable's constructor takes services: the module services it serves, and the services it uses, such as `Auth`. It never takes bare functions, settings, or a provider's client.
+- **Checks for Every Call Run in Interceptors:** Sign-in runs once per call, in the `Auth` interceptor registered on the API (`interceptors=[auth]`). Handlers call `auth.from_ctx(ctx)` for the caller and never read headers themselves.
+- **Provider Code Lives With Its Capability:** A provider's implementation is a repository in the module that owns the capability (`src/modules/users/repositories/firebase_users.py`), or lives in its capability's folder in `src/libs/infra/`.
+
 ### API
 - **Soft Conflicts:** A suspicious but allowed action, such as creating a contact whose email already exists in the tenant, fails by default with `FAILED_PRECONDITION` and error details that describe the conflict. The request has a `force` field. The client shows the conflict to the user and, after the user confirms, resends the request with `force` set to true, which skips only that check. A broken domain rule never accepts `force`.
-- **Filtering Goes Through `src/libs/infra`:** List methods parse and translate their OData `filter` only through the filtering wrapper in `src/libs/infra`, never through the filtering library directly.
+- **Filtering Goes Through `src/libs/infra`:** List methods parse and translate their OData `filter` only through the filtering wrapper in `src/libs/infra/filtering/`, never through the filtering library directly.
 - **Filter Schemas:** Each List method has a filter schema in its module's `repositories/`. The schema maps each filterable API path to a SQL expression: a column, a renamed column, a joined column, or a computed expression. A value that exists only in Python is not filterable.
 - **Filters Are Validated:** Every filter is checked for syntax, known paths, and value types before it runs. An invalid filter fails with `INVALID_ARGUMENT`. For agent tools, the error details list the valid paths.
 
@@ -109,13 +117,14 @@ Every production change follows Red-Green-Refactor:
 ### Test Levels
 - **Unit Tests:** Cover the domain code in `src/modules/*/domain/`: entities, value objects, and domain services. Every source file in `domain/` has a test file next to it (`contact.py` → `contact_test.py`). Domain code does no I/O, so unit tests need no fakes.
 - **Component Tests:** Test one executable as a whole, through its contract: RPC calls for an RPC service, a published event for a domain-events listener, a queued task for a tasks consumer, a clock tick for a cron scheduler, and a conversation for an AI agent. Each test runs a complete flow the way a client uses the component: for an RPC service, create a contact, list it, update it, and get it again. Services, repositories, and the database (an ephemeral Postgres) are real parts of the component and are never tested on their own; everything outside the executable is a fake.
+- **Provider Repository Tests:** A repository that talks to a provider, such as `firebase_users.py`, is replaced by a fake in component tests, so it has its own tests next to it, against a local fake of the provider.
 - **End-to-End (E2E) Tests:** Test the whole system: the real deployables and the production frontend build, driven through the UI in a real browser with Playwright. E2E tests simulate complicated, realistic user journeys: long flows across several screens and features, done the way real users do them, including mistakes, corrections, and returning later to continue. Third parties are fakes.
   - **API-Driven Before the UI Exists:** A feature whose UI does not exist yet runs its E2E tests through the ConnectRPC API, with the same rules. The feature that adds the UI adds the UI-driven tests.
   - **Several Scenarios per Feature:** Each feature has several E2E tests, each a chain of steps: the main lifecycle, and one for each family of failures, such as one of our services failing or a third party answering wrongly.
 - **Agents in Tests:** Component and E2E tests run AI agents on Pydantic AI's `TestModel` or `FunctionModel`. Only evals call a real model, and they run outside the verification command.
 
 ### Coverage and Mutation Testing
-- **100% Coverage:** Every line and branch is covered. The wireframe, generated code, and generated UI primitives are exempt.
+- **100% Coverage:** Every line and branch is covered. The wireframe, generated code, generated UI primitives, and deployable entry points (`src/deployables/`, which only wire and start the process) are exempt.
 - **Genuine Assertions:** Tests assert real outputs and state changes, and fail whenever the behavior breaks. A test without a meaningful assertion is a bug.
 - **Rendered Output Is Asserted:** A test that changes what a control shows asserts the text the user then sees, not only the value the control sends onward. Selecting an option in a dropdown, for example, asserts that the closed control shows the option's label, not its raw value.
 - **Mutation Testing on Domain Code:** For every change to `domain/`, run mutation testing on the changed files and kill every surviving mutant with a new assertion.
@@ -156,7 +165,7 @@ Only the deployable creates infra and injects it, so tests swap every external d
 
 | Dependency | Component tests | E2E tests |
 |---|---|---|
-| Database | Real ephemeral Postgres (testcontainers); each test rolls back | Real ephemeral Postgres |
+| Database | Real ephemeral Postgres (testcontainers); each test starts from empty tables | Real ephemeral Postgres |
 | Other RPC services | A fake implementation of the generated service, served by a local test server | The real deployable, or the same fake |
 | Third-party HTTP APIs | Recorded responses replayed with `pytest-recording`; `respx` for one-off stubs | A fake server per third party, serving committed fixtures |
 | LLM | `TestModel` or `FunctionModel`, injected | The test model, selected through an environment variable |

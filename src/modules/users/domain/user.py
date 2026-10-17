@@ -2,7 +2,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, StringConstraints
 
-from modules.shared.domain.user_id import UserId
+UserId = Annotated[str, StringConstraints(min_length=1, max_length=128)]
 
 
 class User(BaseModel):

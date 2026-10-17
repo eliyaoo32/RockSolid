@@ -6,12 +6,13 @@ backend_packages = [
   "pants.backend.experimental.python.lint.ruff.format",
   "pants.backend.experimental.python.typecheck.pyright",
   "pants.backend.build_files.fmt.ruff",
+  "pants.backend.docker",
 ]
 
 [source]
-# Imports start at src/ (`modules.clients.domain.client`). Protos are their own root,
-# so generated code imports by proto package (`contacts.v1`).
-root_patterns = ["/src", "/src/protos"]
+# Imports start at src/ (`modules.clients.domain.client`). Generated Python is its own root,
+# so it imports by proto package (`clients.v1`).
+root_patterns = ["/src", "/src/generated/python"]
 
 [python]
 interpreter_constraints = ["CPython==3.14.*"]
@@ -33,3 +34,12 @@ verify = "tailor --check update-build-files --check lint check test"
 [pytest]
 # One pytest version, shared by the tests and by Pyright's view of them.
 install_from_resolve = "python-default"
+# Only pytest itself; each test gets the rest through its own dependencies.
+requirements = [
+  "//3rdparty/python#pytest",
+  "//3rdparty/python#pytest-asyncio",
+  "//3rdparty/python#pytest-cov",
+]
+
+[update-build-files]
+formatter = "ruff"

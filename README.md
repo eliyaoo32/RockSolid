@@ -28,7 +28,7 @@ Where the guidelines, the process and the structure is defined well for building
 * **Tactical Building Blocks:** Code is structured using explicit DDD constructs: Entities, Value Objects, Aggregates, Domain Services, Repositories, and Domain Events.
 * **Identity vs. Value:** Clearly separate entities defined by persistent identity from immutable value objects defined solely by their attributes.
 * **Consistency Boundaries:** Aggregates group related entities and value objects to enforce business rules and invariants.
-* **Repository Inversion:** Repository interfaces (ports) belong strictly to the domain layer; all database drivers, ORMs, and persistence mechanisms belong to the repository implementations.
+* **Repository Inversion:** Application services depend only on repository interfaces (ports); all database drivers, ORMs, and providers belong to the repository implementations.
 
 ### Multi-Layered & Trust-Verified Testing
 
@@ -93,17 +93,17 @@ Every business module has the same layout:
 
 ```
 src/modules/contacts/
-├── domain/         # entities, value objects, aggregates, domain services, repository interfaces, domain events
+├── domain/         # entities, value objects, aggregates, domain services, domain events
 ├── services/       # application services: the module's use cases and its public interface
-├── repositories/   # repository implementations and their database tables
+├── repositories/   # repository interfaces, and their implementations: database tables, or a provider's API
 └── migrations/     # the module's own database schema
 ```
 
 * **Domain models are always valid.** Value objects are immutable, and an entity rejects any creation or change that breaks its rules. The domain knows nothing about the database.
 * **Domain services** hold business logic that spans several entities and does no I/O. **Application services** load aggregates through repositories, call the domain, save the result, and publish events.
-* **Repositories:** the domain declares what it needs from storage, and `repositories/` implements it. A repository loads and saves whole aggregates.
+* **Repositories:** `repositories/` holds each repository's interface and its implementation, with a database or a provider's API. Application services depend only on the interface. The clients module stores clients in Postgres; the users module signs users in through Firebase. A repository loads and saves whole aggregates.
 * **Aggregates reference each other by ID**, never through ORM relationships.
-* **Only executables import a module**, and only its `services/`.
+* **Modules share only their domain.** A module may import another module's domain, never its services or repositories. Executables and deployables use a module only through its `services/`.
 
 ### Executables
 
@@ -131,9 +131,9 @@ A deployable is a runtime bootstrapper: it lists the executables it runs, create
 
 ### `src/libs/infra`
 
-* Holds the runtime machinery the executables and deployables use, such as the domain-events listener registry. An executable imports it and registers its handlers.
-* It is organized by who may import it: `src/libs/infra/executables/` is imported only by executables, and `src/libs/infra/deployables/` only by deployables.
-* Pants visibility rules enforce this. Importing from the wrong tier fails the verification command.
+* Holds the technical capabilities that belong to no business module, such as the database pool and the domain-events bus.
+* It is organized by capability: `src/libs/infra/<capability>/`, such as `db/` and `events/`. Each capability folder holds its interface, its provider implementations, and its transport hooks, such as interceptors.
+* A capability with business meaning is a module, not a lib. Signing users in belongs to the users module.
 
 ### AI Agents
 
@@ -151,6 +151,7 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 * **Semantics follow a subset of [Google AIPs](https://google.aip.dev):** resource-oriented design, standard methods, standard fields and states, pagination, partial updates, soft delete, optimistic concurrency, idempotent requests, and consistent errors. Long-running operations, batch methods, and similar heavy patterns are left out. The API design skill lists the exact AIPs.
 * **Form follows the [Buf style guide](https://buf.build/docs/best-practices/style-guide)**, enforced by the verification command.
 * **Contracts never break existing clients.** Breaking changes fail the verification command.
+* **Generated code is kept apart:** contracts live in `src/protos/`, and the code generated from them lives in `src/generated/<language>/`, one folder per language. Generated code is never edited.
 
 #### Filtering
 
@@ -182,7 +183,7 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 
 * SQLModel - ORM for the database tables. Built on Pydantic, like the domain models.
 
-* Firebase authentication - Integrate very easily with the AI, a lot of authentications features are available out of the box, the backend can easily verify the auth JWT from Firebase admin.
+* Firebase authentication - Integrate very easily with the AI, a lot of authentications features are available out of the box. The backend verifies Firebase ID tokens itself, with PyJWT and Google's public keys.
 
 * Shadcn - It's has most of the components we will need, very good for building beatiful applications, agents work with it well.
 

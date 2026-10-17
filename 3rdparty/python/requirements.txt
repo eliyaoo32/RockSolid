@@ -1,3 +1,15 @@
+alembic
+asyncpg
+connectrpc
+greenlet
+protobuf-py
+pydantic-settings
 pydantic[email]
+pyjwt[crypto]
 pytest
+pytest-asyncio
 pytest-cov
+sqlalchemy[asyncio]
+sqlmodel
+testcontainers[postgres]
+uvicorn

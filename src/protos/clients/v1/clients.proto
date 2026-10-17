@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+package clients.v1;
+
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+
+// Manages the signed-in user's clients.
+service ClientsService {
+  // Returns one of the caller's clients.
+  rpc GetClient(GetClientRequest) returns (GetClientResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // Returns the caller's clients, one page at a time, newest first.
+  rpc ListClients(ListClientsRequest) returns (ListClientsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // Creates a client owned by the caller.
+  rpc CreateClient(CreateClientRequest) returns (CreateClientResponse);
+  // Changes the fields named in the update mask.
+  rpc UpdateClient(UpdateClientRequest) returns (UpdateClientResponse);
+  // Deletes one of the caller's clients.
+  rpc DeleteClient(DeleteClientRequest) returns (DeleteClientResponse);
+}
+
+// A person or business that the user works with, such as a customer.
+message Client {
+  // The resource name, such as `clients/0f8fad5b-d9cb-469f-a165-70867728950e`. Output only.
+  string name = 1;
+  // The client's name, as the user calls them.
+  string display_name = 2;
+  // The client's email address.
+  optional string email = 3;
+  // When the client was created. Output only.
+  google.protobuf.Timestamp create_time = 4;
+  // When the client last changed. Output only.
+  google.protobuf.Timestamp update_time = 5;
+}
+
+// The request for GetClient.
+message GetClientRequest {
+  // The resource name of the client.
+  string name = 1;
+}
+
+// The response for GetClient.
+message GetClientResponse {
+  // The client.
+  Client client = 1;
+}
+
+// The request for ListClients.
+message ListClientsRequest {
+  // The most clients to return. The server uses 50 when it is 0, and at most 100.
+  int32 page_size = 1;
+  // The next_page_token from a previous response, to get the next page.
+  string page_token = 2;
+}
+
+// The response for ListClients.
+message ListClientsResponse {
+  // The clients on this page.
+  repeated Client clients = 1;
+  // The token for the next page, or empty when this is the last page.
+  string next_page_token = 2;
+}
+
+// The request for CreateClient.
+message CreateClientRequest {
+  // The client to create. The server sets its name and times.
+  Client client = 1;
+}
+
+// The response for CreateClient.
+message CreateClientResponse {
+  // The created client.
+  Client client = 1;
+}
+
+// The request for UpdateClient.
+message UpdateClientRequest {
+  // The client, with name set to the client to change.
+  Client client = 1;
+  // The fields to change: `display_name`, `email`, or both.
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+// The response for UpdateClient.
+message UpdateClientResponse {
+  // The changed client.
+  Client client = 1;
+}
+
+// The request for DeleteClient.
+message DeleteClientRequest {
+  // The resource name of the client.
+  string name = 1;
+}
+
+// The response for DeleteClient.
+message DeleteClientResponse {}

@@ -3,7 +3,7 @@
 - [-] Take inspirations and ideas from [peva3/anchor](https://github.com/peva3/anchor)
 
 - [ ] Repository foundation
-    - [ ] Create modules, libs, executables, deployables folders
+    - [x] Create modules, libs, executables, deployables folders
     - [ ] Run local Postgres with Docker Compose
 
 - [ ] Pants setup
@@ -21,24 +21,24 @@
 - [ ] Contracts
     - [ ] Enable the Pants Buf lint backend
     - [ ] Add Buf breaking-change detection to verify
-    - [ ] Generate and commit ConnectRPC code with buf
+    - [x] Generate and commit ConnectRPC code with buf
     - [ ] Fail verify when generated code is stale
     - [ ] Generate TypeScript client from protos
     - [ ] Validate requests with buf.validate
 
 - [ ] Database
     - [ ] Add Postgres connection pool to src/libs/infra
-    - [ ] Add database migrations per module
-    - [ ] Give each module its own database schema
+    - [x] Add database migrations per module
+    - [x] Give each module its own database schema
 
 - [ ] Filtering
-    - [ ] Wrap odata-query behind a src/libs/infra interface
+    - [ ] Wrap odata-query in src/libs/infra/filtering
     - [ ] Map filterable API paths to SQL expressions
     - [ ] Validate filters for syntax, paths, and types
     - [ ] Write the filtering syntax agent skill
 
 - [ ] Executable runtimes in src/libs/infra
-    - [ ] Build the ConnectRPC service runtime
+    - [x] Build the ConnectRPC service runtime
     - [ ] Build the cron scheduler runtime
     - [ ] Build the tasks queue on Postgres
     - [ ] Build the domain events bus on Postgres
@@ -55,15 +55,16 @@
     - [ ] Run agent evals in a separate GitHub Action
 
 - [ ] Deployables
-    - [ ] Define how the bootstrapper works
+    - [x] Define how the bootstrapper works
     - [ ] Build the generic deployable bootstrapper
-    - [ ] Decide how deployables load and validate configuration
-    - [ ] Load deployable config from environment variables
+    - [x] Decide how deployables load and validate configuration
+    - [x] Load deployable config from environment variables
     - [ ] Handle graceful startup and shutdown
-    - [ ] Package each deployable as a Docker image
+    - [x] Package each deployable as a Docker image
 
 - [ ] Authentication
-    - [ ] Verify Firebase JWT in RPC and AG-UI endpoints
+    - [x] Verify Firebase JWT in RPC endpoints
+    - [ ] Verify Firebase JWT in AG-UI endpoints
     - [ ] Add Firebase sign-in to the frontend
 
 - [ ] Frontend
@@ -74,21 +75,21 @@
     - [ ] Connect the frontend to agents over AG-UI
 
 - [ ] Testing infra
-    - [ ] Run ephemeral Postgres in tests with testcontainers
-    - [ ] Boot executables in tests with injected fakes
+    - [x] Run ephemeral Postgres in tests with testcontainers
+    - [x] Boot executables in tests with injected fakes
     - [ ] Build a fake RPC service for tests
     - [ ] Replay recorded third-party HTTP responses
     - [ ] Build fake third-party servers for E2E
-    - [ ] Build a fake Firebase token verifier
+    - [x] Build a fake Firebase token verifier
     - [ ] Run the Firebase Auth emulator in E2E
     - [ ] Select the test LLM through an environment variable
-    - [ ] Add an injectable clock
+    - [x] Add an injectable clock
     - [ ] Add an eventually helper for async effects
     - [ ] Restrict src/libs/testing to test code
     - [ ] Set up the E2E package with Playwright
 
 - [ ] Contacts example
-    - [ ] Build Contacts CRUD across all tiers
+    - [x] Build Clients CRUD across all tiers
     - [ ] Build a Contacts assistant agent with evals
 
 - [ ] AI instructions and skills (for Claude Code, Antigravity, Pi)

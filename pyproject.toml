@@ -2,9 +2,26 @@
 
 [tool.ruff]
 line-length = 100
+# Generated code is regenerated, never formatted or linted.
+extend-exclude = ["src/generated"]
+force-exclude = true
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "N", "RUF"]
 
 [tool.pyright]
 typeCheckingMode = "strict"
+# Generated code is checked by its generator, not by us.
+ignore = ["src/generated"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+branch = true
+# Generated code is exempt. Deployable entry points only wire and start the process.
+omit = ["src/generated/*", "src/deployables/*"]
+
+[tool.coverage.report]
+omit = ["src/generated/*", "src/deployables/*"]

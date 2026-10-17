@@ -41,3 +41,9 @@ def test_never_changes_its_id() -> None:
         user.id = "uid-other"
 
     assert user.id == "uid-dana"
+
+
+@pytest.mark.parametrize("user_id", ["", "a" * 129])
+def test_rejects_an_empty_or_too_long_user_id(user_id: str) -> None:
+    with pytest.raises(ValidationError):
+        User(id=user_id, email="dana@example.com", display_name="Dana Levi")

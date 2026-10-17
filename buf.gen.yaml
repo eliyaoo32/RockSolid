@@ -1,0 +1,8 @@
+# Contracts live in src/protos; each language's generated code lives in src/generated/<language>.
+# Plugin versions match the connectrpc and protobuf-py runtime versions in the lockfile.
+version: v2
+plugins:
+  - remote: buf.build/bufbuild/py:v0.6.0
+    out: src/generated/python
+  - remote: buf.build/connectrpc/py:v0.12.1
+    out: src/generated/python
