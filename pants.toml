@@ -1,2 +1,35 @@
 [GLOBAL]
 pants_version = "2.33.1"
+backend_packages = [
+  "pants.backend.python",
+  "pants.backend.experimental.python.lint.ruff.check",
+  "pants.backend.experimental.python.lint.ruff.format",
+  "pants.backend.experimental.python.typecheck.pyright",
+  "pants.backend.build_files.fmt.ruff",
+]
+
+[source]
+# Imports start at src/ (`modules.clients.domain.client`). Protos are their own root,
+# so generated code imports by proto package (`contacts.v1`).
+root_patterns = ["/src", "/src/protos"]
+
+[python]
+interpreter_constraints = ["CPython==3.14.*"]
+enable_resolves = true
+
+[generate-lockfiles]
+diff = true
+
+[test]
+use_coverage = true
+
+[coverage-py]
+global_report = true
+fail_under = 100
+
+[cli.alias]
+verify = "tailor --check update-build-files --check lint check test"
+
+[pytest]
+# One pytest version, shared by the tests and by Pyright's view of them.
+install_from_resolve = "python-default"

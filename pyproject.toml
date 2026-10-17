@@ -1,0 +1,10 @@
+# Tool settings only. Dependencies live in 3rdparty/python/requirements.txt.
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "N", "RUF"]
+
+[tool.pyright]
+typeCheckingMode = "strict"

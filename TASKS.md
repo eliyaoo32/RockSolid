@@ -7,9 +7,10 @@
     - [ ] Run local Postgres with Docker Compose
 
 - [ ] Pants setup
-    - [ ] Enable Pants Python, Ruff, Pyright, visibility backends
-    - [ ] Pin the Python version and lock dependencies
-    - [ ] Add a Pants verify alias for all goals
+    - [x] Enable Pants Python, Ruff, and Pyright backends
+    - [ ] Enable the Pants visibility backend
+    - [x] Pin the Python version and lock dependencies
+    - [x] Add a Pants verify alias for all goals
     - [ ] Add a Makefile verifying backend and frontend
     - [ ] Write Pants visibility rules for the tiers
     - [ ] Forbid ORM imports in module domain code
@@ -26,17 +27,17 @@
     - [ ] Validate requests with buf.validate
 
 - [ ] Database
-    - [ ] Add Postgres connection pool to libs/infra
+    - [ ] Add Postgres connection pool to src/libs/infra
     - [ ] Add database migrations per module
     - [ ] Give each module its own database schema
 
 - [ ] Filtering
-    - [ ] Wrap odata-query behind a libs/infra interface
+    - [ ] Wrap odata-query behind a src/libs/infra interface
     - [ ] Map filterable API paths to SQL expressions
     - [ ] Validate filters for syntax, paths, and types
     - [ ] Write the filtering syntax agent skill
 
-- [ ] Executable runtimes in libs/infra
+- [ ] Executable runtimes in src/libs/infra
     - [ ] Build the ConnectRPC service runtime
     - [ ] Build the cron scheduler runtime
     - [ ] Build the tasks queue on Postgres
@@ -83,7 +84,7 @@
     - [ ] Select the test LLM through an environment variable
     - [ ] Add an injectable clock
     - [ ] Add an eventually helper for async effects
-    - [ ] Restrict libs/testing to test code
+    - [ ] Restrict src/libs/testing to test code
     - [ ] Set up the E2E package with Playwright
 
 - [ ] Contacts example

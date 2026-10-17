@@ -52,10 +52,10 @@ Where the guidelines, the process and the structure is defined well for building
 
 ### Composable 4-Tier Layer Hierarchy
 
-* **Strict 4-Tier Architecture:** The codebase is partitioned into Business Modules (`modules/`), Infrastructure Libraries (`libs/`), Executable Elements (`executables/`), and Deployables (`deployables/`).
-* **Inert Libraries Core:** Business Modules (`modules/`) hold pure domain and application logic; Infrastructure Libraries (`libs/`) provide shared, cross-cutting technical capabilities. Neither runs on its own.
-* **Executable Composition:** Executable Elements (`executables/`) provide concrete runtime drivers (e.g., ConnectRPC API, Cron scheduler, Events listener, AI agent) by importing from `modules/` and `libs/`.
-* **Autonomous Deployables:** A Deployable Element (`deployables/`) is a final, standalone runnable unit (e.g., a Docker image or PEX binary) that composes one or more Executable Elements into a single operational package.
+* **Strict 4-Tier Architecture:** The codebase is partitioned into Business Modules (`src/modules/`), Infrastructure Libraries (`src/libs/`), Executable Elements (`src/executables/`), and Deployables (`src/deployables/`).
+* **Inert Libraries Core:** Business Modules (`src/modules/`) hold pure domain and application logic; Infrastructure Libraries (`src/libs/`) provide shared, cross-cutting technical capabilities. Neither runs on its own.
+* **Executable Composition:** Executable Elements (`src/executables/`) provide concrete runtime drivers (e.g., ConnectRPC API, Cron scheduler, Events listener, AI agent) by importing from `src/modules/` and `src/libs/`.
+* **Autonomous Deployables:** A Deployable Element (`src/deployables/`) is a final, standalone runnable unit (e.g., a Docker image or PEX binary) that composes one or more Executable Elements into a single operational package.
 
 ### Single-Command Deterministic Verification Gate
 
@@ -92,7 +92,7 @@ Before a feature is built, the agent and the owner discuss it and write down wha
 Every business module has the same layout:
 
 ```
-modules/contacts/
+src/modules/contacts/
 ├── domain/         # entities, value objects, aggregates, domain services, repository interfaces, domain events
 ├── services/       # application services: the module's use cases and its public interface
 ├── repositories/   # repository implementations and their database tables
@@ -129,10 +129,10 @@ A deployable is a runtime bootstrapper: it lists the executables it runs, create
 * The deployable reads the URIs of databases and of other deployables from environment variables. No other code reads configuration.
 * All executables in a deployable share one database pool.
 
-### `libs/infra`
+### `src/libs/infra`
 
 * Holds the runtime machinery the executables and deployables use, such as the domain-events listener registry. An executable imports it and registers its handlers.
-* It is organized by who may import it: `libs/infra/executables/` is imported only by executables, and `libs/infra/deployables/` only by deployables.
+* It is organized by who may import it: `src/libs/infra/executables/` is imported only by executables, and `src/libs/infra/deployables/` only by deployables.
 * Pants visibility rules enforce this. Importing from the wrong tier fails the verification command.
 
 ### AI Agents

@@ -27,20 +27,21 @@
 
 ## Project Structure
 ```
-3rdparty/python/           # Python requirements and their Pants targets
-protos/<module>/v1/        # contracts
-modules/<module>/          # one business module
-modules/shared/domain/     # value objects and enums shared by several modules
-libs/infra/<importer>/     # runtime machinery, by the tier that may import it
-libs/testing/              # fakes and helpers shared by tests
-executables/<name>/        # one executable, with its component tests in tests/
-deployables/<name>/        # one deployable and its configuration
-frontend/                  # the product frontend
-wireframe/                 # the approved look and feel
-e2e/                       # the E2E package
-docs/                      # blueprints and their template
+3rdparty/python/               # Python requirements and their Pants targets
+docs/                          # blueprints and their template
+src/protos/<module>/v1/        # contracts
+src/modules/<module>/          # one business module
+src/modules/shared/domain/     # value objects and enums shared by several modules
+src/libs/infra/<importer>/     # runtime machinery, by the tier that may import it
+src/libs/testing/              # fakes and helpers shared by tests
+src/executables/<name>/        # one executable, with its component tests in tests/
+src/deployables/<name>/        # one deployable and its configuration
+src/frontend/                  # the product frontend
+src/wireframe/                 # the approved look and feel
+src/e2e/                       # the E2E package
 ```
-- **Shared Domain Holds Only Value Objects and Enums:** `modules/shared/domain/` never holds entities, services, or repositories.
+- **All Source Code Under `src/`:** Every package, module, and app lives under `src/`. Only repository-wide configuration, `3rdparty/`, and `docs/` sit at the root.
+- **Shared Domain Holds Only Value Objects and Enums:** `src/modules/shared/domain/` never holds entities, services, or repositories.
 - **Executables Are Named After Their Job:** An executable's folder name says what it does (`contacts_api`, `contacts_assistant`), never its type.
 
 ## Backend
@@ -50,7 +51,8 @@ docs/                      # blueprints and their template
 
 ### Domain and Persistence
 - **Pydantic Domain Models:** Entities, aggregates, and value objects are Pydantic models. Value objects are frozen (`frozen=True`). Entities validate every change (`validate_assignment=True`), so an entity is never invalid.
-- **Value Objects Stay Nested:** A value object has no ID and no lifecycle, and it may carry logic. An entity holds each value object as one nested object, in the domain and in the API, never as its fields flattened into the entity. A value object used by several modules lives in `modules/shared/domain/`.
+- **The Domain Knows No Vendors:** Domain code, its comments, its test names, and its limits never mention or depend on a provider or tool, such as an auth provider, a database, an ORM, or a cloud. The domain states its own rules, and the adapter that talks to the provider maps the provider's values to the domain's.
+- **Value Objects Stay Nested:** A value object has no ID and no lifecycle, and it may carry logic. An entity holds each value object as one nested object, in the domain and in the API, never as its fields flattened into the entity. A value object used by several modules lives in `src/modules/shared/domain/`.
 - **Value Objects Are Prefixed Columns:** In the database, a value object's fields are columns prefixed with the name of the entity field that holds it (`address_city`, `address_street`). The repository maps them.
 - **Repositories:** The repository interface lives in `domain/`. The implementation lives in `repositories/`, with SQLModel table models (`table=True`). It converts with `model_validate` (`Contact.model_validate(row, from_attributes=True)` and `ContactRow.model_validate(contact)`), and maps by hand only the fields whose name or shape differ, such as value-object columns.
 - **Whole Aggregates:** A repository loads and saves a whole aggregate, never part of it.
@@ -59,12 +61,12 @@ docs/                      # blueprints and their template
 
 ### API
 - **Soft Conflicts:** A suspicious but allowed action, such as creating a contact whose email already exists in the tenant, fails by default with `FAILED_PRECONDITION` and error details that describe the conflict. The request has a `force` field. The client shows the conflict to the user and, after the user confirms, resends the request with `force` set to true, which skips only that check. A broken domain rule never accepts `force`.
-- **Filtering Goes Through `libs/infra`:** List methods parse and translate their OData `filter` only through the filtering wrapper in `libs/infra`, never through the filtering library directly.
+- **Filtering Goes Through `src/libs/infra`:** List methods parse and translate their OData `filter` only through the filtering wrapper in `src/libs/infra`, never through the filtering library directly.
 - **Filter Schemas:** Each List method has a filter schema in its module's `repositories/`. The schema maps each filterable API path to a SQL expression: a column, a renamed column, a joined column, or a computed expression. A value that exists only in Python is not filterable.
 - **Filters Are Validated:** Every filter is checked for syntax, known paths, and value types before it runs. An invalid filter fails with `INVALID_ARGUMENT`. For agent tools, the error details list the valid paths.
 
 ## Frontend
-These rules apply to the production frontend in `frontend/`. The wireframe in `wireframe/` is a design artifact and does not follow them.
+These rules apply to the production frontend in `src/frontend/`. The wireframe in `src/wireframe/` is a design artifact and does not follow them.
 
 ### Dependencies
 - **CLI Only:** Add, upgrade, and remove packages only through the CLI, in the package's folder: `pnpm add` (`pnpm add -D` for tools), `pnpm update`, and `pnpm remove`. Never edit the dependency lists in `package.json` by hand.
@@ -87,16 +89,16 @@ These rules apply to the production frontend in `frontend/`. The wireframe in `w
 
 ### Test Folders
 ```
-modules/contacts/domain/contact.py
-modules/contacts/domain/contact_test.py           # unit test, next to its source
-executables/contacts_api/tests/contacts_test.py   # component tests, named after the feature
-executables/contacts_api/tests/framework/         # this executable's drivers, fixtures, and fakes
-libs/testing/                                     # fakes and helpers shared by several executables
-e2e/tests/contact_management.spec.ts              # E2E tests
-e2e/framework/                                    # E2E drivers, fixtures, and fakes
+src/modules/contacts/domain/contact.py
+src/modules/contacts/domain/contact_test.py           # unit test, next to its source
+src/executables/contacts_api/tests/contacts_test.py   # component tests, named after the feature
+src/executables/contacts_api/tests/framework/         # this executable's drivers, fixtures, and fakes
+src/libs/testing/                                     # fakes and helpers shared by several executables
+src/e2e/tests/contact_management.spec.ts              # E2E tests
+src/e2e/framework/                                    # E2E drivers, fixtures, and fakes
 ```
-- Drivers, fixtures, and fakes live only in `framework/` folders or `libs/testing/`, never in test files or product code.
-- Only test code may import `libs/testing/`.
+- Drivers, fixtures, and fakes live only in `framework/` folders or `src/libs/testing/`, never in test files or product code.
+- Only test code may import `src/libs/testing/`.
 
 ### Test-Driven Development
 Every production change follows Red-Green-Refactor:
@@ -105,7 +107,7 @@ Every production change follows Red-Green-Refactor:
 3. **Refactor:** Clean up the code and the tests, keeping every test green.
 
 ### Test Levels
-- **Unit Tests:** Cover the domain code in `modules/*/domain/`: entities, value objects, and domain services. Every source file in `domain/` has a test file next to it (`contact.py` → `contact_test.py`). Domain code does no I/O, so unit tests need no fakes.
+- **Unit Tests:** Cover the domain code in `src/modules/*/domain/`: entities, value objects, and domain services. Every source file in `domain/` has a test file next to it (`contact.py` → `contact_test.py`). Domain code does no I/O, so unit tests need no fakes.
 - **Component Tests:** Test one executable as a whole, through its contract: RPC calls for an RPC service, a published event for a domain-events listener, a queued task for a tasks consumer, a clock tick for a cron scheduler, and a conversation for an AI agent. Each test runs a complete flow the way a client uses the component: for an RPC service, create a contact, list it, update it, and get it again. Services, repositories, and the database (an ephemeral Postgres) are real parts of the component and are never tested on their own; everything outside the executable is a fake.
 - **End-to-End (E2E) Tests:** Test the whole system: the real deployables and the production frontend build, driven through the UI in a real browser with Playwright. E2E tests simulate complicated, realistic user journeys: long flows across several screens and features, done the way real users do them, including mistakes, corrections, and returning later to continue. Third parties are fakes.
   - **API-Driven Before the UI Exists:** A feature whose UI does not exist yet runs its E2E tests through the ConnectRPC API, with the same rules. The feature that adds the UI adds the UI-driven tests.
