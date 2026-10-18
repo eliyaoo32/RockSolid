@@ -1,5 +1,3 @@
-python_sources()
-
 # The Linux platforms of the python:3.14-slim base image, captured with
 # `pex3 interpreter inspect --markers --tags` inside it.
 file(name="linux_amd64", source="linux_amd64.json")

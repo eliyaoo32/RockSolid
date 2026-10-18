@@ -60,17 +60,17 @@ class InfraSettings(BaseSettings):
 
 
 @dataclass(frozen=True)
-class BackgroundWork:
+class _BackgroundWork:
     jobs: Sequence[CronJob]
     subscriptions: Sequence[Subscription[Any]]
     handlers: Sequence[TaskHandler[Any]]
 
 
-def collect_background_work(executables: Sequence[Executable]) -> BackgroundWork:
+def _collect_background_work(executables: Sequence[Executable]) -> _BackgroundWork:
     """Collects the executables' cron jobs, subscriptions, and task handlers. Raises ValueError
     when two subscriptions share a name, since a name keeps one place in the event log, or when
     two handlers take one task type, since only one may run it."""
-    work = BackgroundWork(
+    work = _BackgroundWork(
         jobs=[j for e in executables if isinstance(e, CronExecutable) for j in e.jobs()],
         subscriptions=[
             s
@@ -170,7 +170,7 @@ class Runtime:
         """Serves the HTTP executables until `stop` is set or the process gets SIGTERM or SIGINT."""
         executables = [create(self._infra) for create in self._executable_classes]
         self._http = [e for e in executables if isinstance(e, HttpExecutable)]
-        work = collect_background_work(executables)
+        work = _collect_background_work(executables)
         loop = asyncio.get_running_loop()
         for signal_number in (signal.SIGTERM, signal.SIGINT):
             loop.add_signal_handler(signal_number, stop.set)

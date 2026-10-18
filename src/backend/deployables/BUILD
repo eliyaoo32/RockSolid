@@ -1,9 +1,11 @@
 # Import rules for every deployable: it lists its executables and hands them to the runtime.
 __dependencies_rules__(
-    # The checks across deployables build every deployable's executables with the test helpers.
+    # The checks across deployables load every deployable and build its executables with the
+    # test helpers.
     (
-        "/deployables_test.py",
+        "/tests/**",
         "./**",
+        "//src/backend/deployables/**",
         "//src/backend/executables/*/*.py",
         "//src/backend/libs/**",
         "//3rdparty/python#*",
@@ -19,7 +21,5 @@ __dependencies_rules__(
     ),
 )
 
-# Every deployable's entry point, so the checks can tell when a deployable is missing from them.
-files(name="entry_points", sources=["*/main.py"])
-
-python_tests(name="tests", dependencies=[":entry_points"])
+# Every deployable's entry point, owned here so the checks across deployables load them all.
+python_sources(name="entry_points", sources=["*/main.py"])

@@ -1,11 +1,9 @@
-from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
+from libs.infra.db.transaction import BeforeCommit
 from modules.clients.domain.client import Client
-from modules.clients.domain.client_events import ClientCreated
-from modules.clients.domain.client_tasks import WelcomeClient
 from modules.users.domain.user import UserId
 
 
@@ -28,14 +26,9 @@ class ClientRepository(Protocol):
         """Returns how many clients, of every owner, were created at or after `since`."""
         ...
 
-    async def save(
-        self,
-        client: Client,
-        events: Sequence[ClientCreated] = (),
-        tasks: Sequence[WelcomeClient] = (),
-    ) -> None:
-        """Adds the client, or replaces it when it exists, publishes the events, and queues the
-        tasks, all in one transaction: all are saved, or none is."""
+    async def save(self, client: Client, before_commit: BeforeCommit | None = None) -> None:
+        """Adds the client, or replaces it when it exists. `before_commit` runs in the same
+        transaction, so what it writes is saved with the client, or not at all."""
         ...
 
     async def delete(self, owner_id: UserId, client_id: UUID) -> bool:

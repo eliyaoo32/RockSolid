@@ -1,4 +1,3 @@
-from collections.abc import Sequence
 from datetime import datetime
 from uuid import UUID
 
@@ -7,12 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlmodel import Field, SQLModel, col, delete, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from libs.infra.events.events import append_events
+from libs.infra.db.transaction import BeforeCommit
 from libs.infra.filtering.filtering import FilterSchema
-from libs.infra.tasks.tasks import enqueue_tasks
 from modules.clients.domain.client import Client
-from modules.clients.domain.client_events import ClientCreated
-from modules.clients.domain.client_tasks import WelcomeClient
 from modules.users.domain.user import UserId
 
 
@@ -71,16 +67,11 @@ class PostgresClientRepository:
         async with AsyncSession(self._database) as session:
             return (await session.exec(query)).one()
 
-    async def save(
-        self,
-        client: Client,
-        events: Sequence[ClientCreated] = (),
-        tasks: Sequence[WelcomeClient] = (),
-    ) -> None:
+    async def save(self, client: Client, before_commit: BeforeCommit | None = None) -> None:
         async with AsyncSession(self._database) as session:
             await session.merge(ClientRow.model_validate(client, from_attributes=True))
-            await append_events(await session.connection(), events)
-            await enqueue_tasks(await session.connection(), tasks)
+            if before_commit is not None:
+                await before_commit(await session.connection())
             await session.commit()
 
     async def delete(self, owner_id: UserId, client_id: UUID) -> bool:
