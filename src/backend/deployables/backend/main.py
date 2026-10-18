@@ -4,6 +4,7 @@ import asyncio
 import sys
 
 from executables.client_activity.client_activity import ClientActivityExecutable
+from executables.client_welcome.client_welcome import ClientWelcomeExecutable
 from executables.clients_api.clients_api import ClientsApiExecutable
 from executables.clients_digest.clients_digest import ClientsDigestExecutable
 from executables.users_api.users_api import UsersApiExecutable
@@ -13,6 +14,7 @@ EXECUTABLES = [
     ClientsApiExecutable,
     ClientsDigestExecutable,
     ClientActivityExecutable,
+    ClientWelcomeExecutable,
     UsersApiExecutable,
 ]
 

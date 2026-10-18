@@ -10,8 +10,12 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel
 
+from libs.infra.db.transaction import Transaction
+from libs.infra.events.events import append_events
+from libs.infra.tasks.tasks import enqueue_tasks
 from modules.clients.domain.client import Client
 from modules.clients.domain.client_events import ClientCreated
+from modules.clients.domain.client_tasks import WelcomeClient
 from modules.clients.repositories.client_repository import ClientRepository
 from modules.users.domain.user import UserId
 
@@ -82,7 +86,14 @@ class ClientService:
         created = ClientCreated(
             client_id=client.id, owner_id=client.owner_id, display_name=client.display_name
         )
-        await self._repository.save(client, [created])
+        # Only a client with an email address can be welcomed.
+        welcome = [WelcomeClient(client_id=client.id, owner_id=owner_id)] if email else []
+
+        async def publish_creation(transaction: Transaction) -> None:
+            await append_events(transaction, [created])
+            await enqueue_tasks(transaction, welcome)
+
+        await self._repository.save(client, publish_creation)
         return client
 
     async def update(self, owner_id: UserId, client_id: UUID, changes: ClientChanges) -> Client:

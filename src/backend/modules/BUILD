@@ -9,16 +9,21 @@ __dependencies_rules__(
         "//3rdparty/python#pytest",
         "!*",
     ),
-    # Repository interfaces: domains only.
-    ("/*/repositories/*_repository.py", "//src/backend/modules/*/domain/**", "!*"),
-    # Repository implementations and their tests: their own folder, domains, filtering, events,
-    # third parties.
+    # Repository interfaces: domains, and the transaction a save runs in.
+    (
+        "/*/repositories/*_repository.py",
+        "//src/backend/modules/*/domain/**",
+        "//src/backend/libs/infra/db/transaction.py",
+        "!*",
+    ),
+    # Repository implementations and their tests: their own folder, domains, the transaction,
+    # filtering, third parties.
     (
         "/*/repositories/**",
         "./*",
         "//src/backend/modules/*/domain/**",
+        "//src/backend/libs/infra/db/transaction.py",
         "//src/backend/libs/infra/filtering/**",
-        "//src/backend/libs/infra/events/**",
         "//3rdparty/python#*",
         "!*",
     ),
@@ -33,12 +38,16 @@ __dependencies_rules__(
         "//3rdparty/python#*",
         "!*",
     ),
-    # Application services: their module's repository interfaces, never implementations.
+    # Application services: their module's repository interfaces, never implementations, and the
+    # events and tasks they write in a save's transaction.
     (
         "/*/services/**",
         "./*",
         "../repositories/*_repository.py",
         "//src/backend/modules/*/domain/**",
+        "//src/backend/libs/infra/db/transaction.py",
+        "//src/backend/libs/infra/events/**",
+        "//src/backend/libs/infra/tasks/**",
         "//3rdparty/python#*",
         "!*",
     ),

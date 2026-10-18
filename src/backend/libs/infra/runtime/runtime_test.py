@@ -25,8 +25,10 @@ from libs.infra.runtime.executables import (
     RpcServiceExecutable,
     Scope,
     Send,
+    TasksConsumerExecutable,
 )
 from libs.infra.runtime.runtime import Runtime, run
+from libs.infra.tasks.tasks import TaskHandler, task_type_of
 from modules.users.services.setup import create_auth
 
 migrated: list[AsyncEngine] = []
@@ -85,6 +87,49 @@ class MoreGreeters(DomainEventsListenerExecutable):
         return [Subscription("welcome_guest", Greeted, self.welcome)]
 
     async def welcome(self, event: Greeted) -> None: ...
+
+
+class PrintBadge(BaseModel):
+    task_type: ClassVar[str] = "tests.PrintBadge"
+    name: str
+
+
+class SendInvite(BaseModel):
+    task_type: ClassVar[str] = "tests.SendInvite"
+    name: str
+
+
+class FrontDesk(TasksConsumerExecutable):
+    """A tasks consumer with two handlers."""
+
+    def handlers(self) -> Sequence[TaskHandler[Any]]:
+        return [TaskHandler(PrintBadge, self.print_badge), TaskHandler(SendInvite, self.invite)]
+
+    async def print_badge(self, task: PrintBadge) -> None: ...
+
+    async def invite(self, task: SendInvite) -> None: ...
+
+
+class BackOffice(TasksConsumerExecutable):
+    """Also handles badges, which FrontDesk already handles."""
+
+    def handlers(self) -> Sequence[TaskHandler[Any]]:
+        return [TaskHandler(PrintBadge, self.print_badge)]
+
+    async def print_badge(self, task: PrintBadge) -> None: ...
+
+
+class RecordingQueue:
+    """A task queue that records the task types it was given and returns once stopped."""
+
+    def __init__(self) -> None:
+        self.task_types: list[str] = []
+        self.started = asyncio.Event()
+
+    async def run(self, handlers: Sequence[TaskHandler[Any]], stop: asyncio.Event) -> None:
+        self.task_types = [task_type_of(handler.task) for handler in handlers]
+        self.started.set()
+        await stop.wait()
 
 
 class RecordingBus:
@@ -317,3 +362,31 @@ async def test_migrates_the_event_log_that_every_module_publishes_to(infra: Infr
     async with infra.database.connect() as connection:
         found = await connection.execute(text("SELECT to_regclass('events.log')::text"))
         assert found.scalar() == "events.log"
+
+
+async def test_hands_every_task_handler_to_the_task_queue(infra: Infra) -> None:
+    queue = RecordingQueue()
+    stop = asyncio.Event()
+    task = await serving(Runtime([EchoApi, FrontDesk], infra, port=0, tasks=queue), stop)
+
+    async with asyncio.timeout(10):
+        await queue.started.wait()
+    stop.set()
+    await task
+
+    assert queue.task_types == ["tests.PrintBadge", "tests.SendInvite"]
+
+
+async def test_refuses_to_start_with_two_handlers_for_one_task_type(infra: Infra) -> None:
+    runtime = Runtime([FrontDesk, BackOffice], infra, port=0, tasks=RecordingQueue())
+
+    with pytest.raises(ValueError, match=r"two handlers take tests\.PrintBadge"):
+        await runtime.serve(asyncio.Event())
+
+
+async def test_migrates_the_task_queue_that_every_module_queues_to(infra: Infra) -> None:
+    await Runtime([EchoApi], infra, port=0).migrate()
+
+    async with infra.database.connect() as connection:
+        found = await connection.execute(text("SELECT to_regclass('tasks.queue')::text"))
+        assert found.scalar() == "tasks.queue"

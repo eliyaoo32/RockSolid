@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from libs.infra.cron.cron import CronJob, InProcessCronRunner, InvalidScheduleError, wait_or_stop
+from libs.infra.cron.cron import CronJob, InProcessCronRunner, InvalidScheduleError, wait_until
 from libs.infra.logs.json_logs import request_id
 from libs.testing.time import FakeTime, eventually
 
@@ -105,8 +105,9 @@ def test_rejects_an_invalid_schedule(schedule: str) -> None:
 
 async def test_waits_until_the_time_passes_or_stop_is_set() -> None:
     stop = asyncio.Event()
+    now = datetime.now(UTC)
 
     async with asyncio.timeout(1):
-        await wait_or_stop(0, stop)
+        await wait_until(lambda: now, now - timedelta(seconds=1), stop)
         stop.set()
-        await wait_or_stop(3600, stop)
+        await wait_until(lambda: now, now + timedelta(hours=1), stop)

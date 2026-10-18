@@ -41,7 +41,7 @@
     - [x] Build the ConnectRPC service runtime
     - [x] Build the cron scheduler runtime
     - [ ] TODO: run each cron job once when a deployable runs more than once
-    - [ ] Build the tasks queue on Postgres
+    - [x] Build the tasks queue on Postgres
     - [x] Build the domain events bus on Postgres
     - [ ] TODO: clean up old events in the event log
     - [ ] Build the AI agent runtime with Pydantic AI

@@ -1,11 +1,12 @@
 """Runs a deployable's executables in one process: builds the shared infra once, migrates the
-module schemas, serves every HTTP executable on one server, runs every cron job, and stops
-gracefully on SIGTERM."""
+module schemas, serves every HTTP executable on one server, runs every cron job, event
+subscription, and task handler, and stops gracefully on SIGTERM."""
 
 import asyncio
 import re
 import signal
-from collections.abc import MutableMapping, Sequence
+from collections.abc import Iterable, MutableMapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import partial
 from typing import Any
@@ -17,8 +18,8 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from libs.infra.cron.cron import CronRunner, InProcessCronRunner
-from libs.infra.events.events import EventBus, PostgresEventBus, migrate_event_log
+from libs.infra.cron.cron import CronJob, CronRunner, InProcessCronRunner
+from libs.infra.events.events import EventBus, PostgresEventBus, Subscription, migrate_event_log
 from libs.infra.logs.json_logs import configure_logging, request_id
 from libs.infra.runtime.executables import (
     CronExecutable,
@@ -29,6 +30,14 @@ from libs.infra.runtime.executables import (
     Receive,
     Scope,
     Send,
+    TasksConsumerExecutable,
+)
+from libs.infra.tasks.tasks import (
+    PostgresTaskQueue,
+    TaskHandler,
+    TaskQueue,
+    migrate_task_queue,
+    task_type_of,
 )
 from modules.users.services.setup import create_auth
 
@@ -48,6 +57,42 @@ class InfraSettings(BaseSettings):
     port: int = 8080
     # Proxies trusted to set X-Forwarded-For and X-Forwarded-Proto, such as a load balancer.
     forwarded_allow_ips: str = "127.0.0.1"
+
+
+@dataclass(frozen=True)
+class _BackgroundWork:
+    jobs: Sequence[CronJob]
+    subscriptions: Sequence[Subscription[Any]]
+    handlers: Sequence[TaskHandler[Any]]
+
+
+def _collect_background_work(executables: Sequence[Executable]) -> _BackgroundWork:
+    """Collects the executables' cron jobs, subscriptions, and task handlers. Raises ValueError
+    when two subscriptions share a name, since a name keeps one place in the event log, or when
+    two handlers take one task type, since only one may run it."""
+    work = _BackgroundWork(
+        jobs=[j for e in executables if isinstance(e, CronExecutable) for j in e.jobs()],
+        subscriptions=[
+            s
+            for e in executables
+            if isinstance(e, DomainEventsListenerExecutable)
+            for s in e.subscriptions()
+        ],
+        handlers=[
+            h for e in executables if isinstance(e, TasksConsumerExecutable) for h in e.handlers()
+        ],
+    )
+    if repeated := _repeated(s.name for s in work.subscriptions):
+        raise ValueError(f"two subscriptions are named {repeated}")
+    if repeated := _repeated(task_type_of(h.task) for h in work.handlers):
+        raise ValueError(f"two handlers take {repeated}")
+    return work
+
+
+def _repeated(names: Iterable[str]) -> str:
+    """The names that appear more than once, comma-separated, or "" when none do."""
+    names = list(names)
+    return ", ".join(sorted({name for name in names if names.count(name) > 1}))
 
 
 async def run(
@@ -90,6 +135,7 @@ class Runtime:
         forwarded_allow_ips: str = "127.0.0.1",
         cron: CronRunner | None = None,
         events: EventBus | None = None,
+        tasks: TaskQueue | None = None,
     ) -> None:
         self._executable_classes = executables
         self._infra = infra
@@ -99,6 +145,8 @@ class Runtime:
         self._cron = cron or InProcessCronRunner(infra.now)
         # Delivers every domain event subscription; a test can pass a bus driven by fake time.
         self._events = events or PostgresEventBus(infra.database, infra.now)
+        # Runs every task handler; a test can pass a queue driven by fake time.
+        self._tasks = tasks or PostgresTaskQueue(infra.database, infra.now)
         self._http: list[HttpExecutable] = []
         self._server: uvicorn.Server | None = None
 
@@ -110,9 +158,10 @@ class Runtime:
         return self._server.servers[0].sockets[0].getsockname()[1]
 
     async def migrate(self) -> None:
-        """Migrates the event log, which every module may publish to, then every schema the
-        executables need, each once, without building them."""
+        """Migrates the event log and the task queue, which every module may write to, then
+        every schema the executables need, each once, without building them."""
         await migrate_event_log(self._infra.database)
+        await migrate_task_queue(self._infra.database)
         migrations = {m: None for e in self._executable_classes for m in e.migrations}
         for migration in migrations:
             await migration(self._infra.database)
@@ -121,17 +170,7 @@ class Runtime:
         """Serves the HTTP executables until `stop` is set or the process gets SIGTERM or SIGINT."""
         executables = [create(self._infra) for create in self._executable_classes]
         self._http = [e for e in executables if isinstance(e, HttpExecutable)]
-        cron_jobs = [j for e in executables if isinstance(e, CronExecutable) for j in e.jobs()]
-        subscriptions = [
-            s
-            for e in executables
-            if isinstance(e, DomainEventsListenerExecutable)
-            for s in e.subscriptions()
-        ]
-        names = [subscription.name for subscription in subscriptions]
-        if repeated := sorted({name for name in names if names.count(name) > 1}):
-            # A subscription's name keeps its place in the event log, so two would share one.
-            raise ValueError(f"two subscriptions are named {', '.join(repeated)}")
+        work = _collect_background_work(executables)
         loop = asyncio.get_running_loop()
         for signal_number in (signal.SIGTERM, signal.SIGINT):
             loop.add_signal_handler(signal_number, stop.set)
@@ -150,10 +189,12 @@ class Runtime:
         try:
             async with asyncio.TaskGroup() as tasks:
                 tasks.create_task(self._serve_http(stop))
-                if cron_jobs:
-                    tasks.create_task(self._cron.run(cron_jobs, stop))
-                if subscriptions:
-                    tasks.create_task(self._events.run(subscriptions, stop))
+                if work.jobs:
+                    tasks.create_task(self._cron.run(work.jobs, stop))
+                if work.subscriptions:
+                    tasks.create_task(self._events.run(work.subscriptions, stop))
+                if work.handlers:
+                    tasks.create_task(self._tasks.run(work.handlers, stop))
         finally:
             for signal_number in (signal.SIGTERM, signal.SIGINT):
                 loop.remove_signal_handler(signal_number)

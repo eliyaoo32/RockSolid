@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from libs.infra.cron.cron import CronJob
 from libs.infra.events.events import Subscription
+from libs.infra.tasks.tasks import TaskHandler
 from modules.users.services.auth import Auth
 
 type Scope = MutableMapping[str, Any]
@@ -60,8 +61,13 @@ class CronExecutable(BackgroundExecutable, ABC):
         """The executable's jobs. The runtime calls it once, at startup."""
 
 
-class TasksConsumerExecutable(BackgroundExecutable):
-    """Takes commands from a queue and runs each one exactly once, with retries."""
+class TasksConsumerExecutable(BackgroundExecutable, ABC):
+    """Runs queued tasks. One executable holds as many handlers as its business area needs, and
+    each task type has one handler across every deployable."""
+
+    @abstractmethod
+    def handlers(self) -> Sequence[TaskHandler[Any]]:
+        """The executable's handlers. The runtime calls it once, at startup."""
 
 
 class DomainEventsListenerExecutable(BackgroundExecutable, ABC):
