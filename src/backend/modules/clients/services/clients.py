@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from modules.clients.domain.client import Client
 from modules.clients.domain.client_events import ClientCreated
+from modules.clients.domain.client_tasks import WelcomeClient
 from modules.clients.repositories.client_repository import ClientRepository
 from modules.users.domain.user import UserId
 
@@ -82,7 +83,9 @@ class ClientService:
         created = ClientCreated(
             client_id=client.id, owner_id=client.owner_id, display_name=client.display_name
         )
-        await self._repository.save(client, [created])
+        # Only a client with an email address can be welcomed.
+        welcome = [WelcomeClient(client_id=client.id, owner_id=owner_id)] if email else []
+        await self._repository.save(client, [created], welcome)
         return client
 
     async def update(self, owner_id: UserId, client_id: UUID, changes: ClientChanges) -> Client:

@@ -112,16 +112,16 @@ Every executable is one of these five types:
 |---|---|
 | **RPC Service** | Serves ConnectRPC requests and returns a response. |
 | **Cron Scheduler** | Runs jobs at fixed times or intervals. |
-| **Tasks Consumer** | Takes commands from a queue and runs each one exactly once, with retries. |
+| **Tasks Consumer** | Runs commands from a queue: work a module asks to have done. Each task type has one handler across all deployables, and each task runs until it succeeds, with retries. |
 | **Domain-Events Listener** | Reacts to domain events: facts that already happened in some domain. An event can have any number of listeners, and the publisher does not know them. |
 | **AI Agent** | Runs a Pydantic AI agent that users talk to. |
 
 An executable is a class. The runtime knows two kinds:
 
 * **HTTP executables** (RPC services and AI agents) give the runtime their routes, which it mounts on the deployable's one HTTP server.
-* **Background executables** (cron schedulers, tasks consumers, and domain-events listeners) work outside HTTP. Cron schedulers run today; the other types get their behavior with the first feature that needs them.
+* **Background executables** (cron schedulers, tasks consumers, and domain-events listeners) work outside HTTP.
 
-Each executable type has its own base class under these two, which holds the wiring every executable of that type shares. `RpcServiceExecutable` mounts one ConnectRPC service and signs in every call. `CronExecutable` holds as many cron jobs as its business area needs. Each executable class names the module schemas it needs migrated, so the runtime migrates them without building it.
+Each executable type has its own base class under these two, which holds the wiring every executable of that type shares. `RpcServiceExecutable` mounts one ConnectRPC service and signs in every call. `CronExecutable`, `TasksConsumerExecutable`, and `DomainEventsListenerExecutable` hold as many cron jobs, task handlers, and subscriptions as their business area needs. Each executable class names the module schemas it needs migrated, so the runtime migrates them without building it.
 
 ### Deployables
 
@@ -132,8 +132,8 @@ A deployable is a list of the executable classes it runs, in one process. The ru
 * **Health:** `/healthz` answers while the process runs, and `/readyz` answers when the database can be used.
 * **Logs:** every log line is one JSON object on stdout, tagged with the ID of the request it served. Each response carries its request ID in `X-Request-ID`.
 * **Cron jobs:** the runtime hands every cron job to its cron runner, which decides how jobs are triggered. The first runner runs them inside the process; another runner, such as a hosted scheduler, can replace it without changing the executables.
-  [TODO: run each cron job once when a deployable runs more than once. Today every running copy of a deployable runs every job.]
 * **Domain events:** a module publishes an event in the same transaction as the change it describes, into one event log in Postgres. The runtime delivers every listener executable's subscriptions from that log: each subscription has its own cursor, receives its event type in order, at least once, and is retried as the subscription's retry strategy says when its handler fails, until the event is parked. Only one running copy of a deployable delivers each subscription. Another bus, such as a hosted broker, can replace the Postgres one without changing listeners.
+* **Tasks:** a module queues a task in the same transaction as the change that asks for it, into one queue in Postgres. The runtime runs every consumer executable's handlers from that queue: each task runs at least once, by the one handler of its type, and is retried as the handler's retry strategy says when it fails, until the task is parked. A task stays locked while it runs, so when a process crashes, its task returns to the queue. Work that recurs, such as every two hours, is a cron job that queues a task. Another queue, such as a hosted broker, can replace the Postgres one without changing consumers.
 * **Graceful shutdown:** on SIGTERM, it stops taking new work, lets running work finish, and closes the pools.
 
 ### Dependency Injection

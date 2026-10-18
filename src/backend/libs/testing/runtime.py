@@ -13,6 +13,7 @@ from libs.infra.cron.cron import InProcessCronRunner
 from libs.infra.events.events import PostgresEventBus
 from libs.infra.runtime.executables import Executable, Infra
 from libs.infra.runtime.runtime import Runtime
+from libs.infra.tasks.tasks import PostgresTaskQueue
 from libs.testing.time import FakeTime, eventually
 from modules.users.services.auth import Auth
 from modules.users.services.setup import create_auth
@@ -38,8 +39,8 @@ async def run_executables(
 ) -> AsyncIterator[RunningExecutables]:
     """Migrates and serves the executables until the block ends.
 
-    Cron jobs and event retries follow the returned `time`. Pass `auth` to sign callers in with
-    a fake; without it, every RPC call is unauthenticated.
+    Cron jobs and event and task retries follow the returned `time`. Pass `auth` to sign callers
+    in with a fake; without it, every RPC call is unauthenticated.
     """
     database = create_async_engine(database_url)
     time = FakeTime(start)
@@ -49,6 +50,7 @@ async def run_executables(
         port=0,
         cron=InProcessCronRunner(time, time.wait),
         events=PostgresEventBus(database, time, time.wait),
+        tasks=PostgresTaskQueue(database, time, time.wait),
     )
     try:
         await runtime.migrate()
@@ -63,3 +65,11 @@ async def run_executables(
         await serving
     finally:
         await database.dispose()
+
+
+def build_executables(executables: Sequence[type[Executable]]) -> list[Executable]:
+    """Builds the executables the way the runtime does, on a database that is never connected
+    to, for a test that reads what they declare, such as their task handlers."""
+    database = create_async_engine("postgresql+asyncpg://never-connected@localhost/none")
+    infra = Infra(database, create_auth("rocksolid-test"), FakeTime(START))
+    return [create(infra) for create in executables]

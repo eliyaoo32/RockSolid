@@ -12,13 +12,14 @@ __dependencies_rules__(
     # Repository interfaces: domains only.
     ("/*/repositories/*_repository.py", "//src/backend/modules/*/domain/**", "!*"),
     # Repository implementations and their tests: their own folder, domains, filtering, events,
-    # third parties.
+    # tasks, third parties.
     (
         "/*/repositories/**",
         "./*",
         "//src/backend/modules/*/domain/**",
         "//src/backend/libs/infra/filtering/**",
         "//src/backend/libs/infra/events/**",
+        "//src/backend/libs/infra/tasks/**",
         "//3rdparty/python#*",
         "!*",
     ),

@@ -14,16 +14,17 @@ import logging
 from collections.abc import Callable, Coroutine, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from functools import partial
 from pathlib import Path
 from typing import Any, Protocol
 
-from alembic import command
-from alembic.config import Config
 from pydantic import BaseModel
-from sqlalchemy import Connection, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from libs.infra.cron.cron import Wait, wait_or_stop
+from libs.infra.db.migrations import apply_migrations
+from libs.infra.db.notifications import run_on_notifications
 from libs.infra.logs.json_logs import request_id
 from libs.infra.retry.retry import Exponential, NonRetryableError, RetryStrategy
 
@@ -91,15 +92,7 @@ async def append_events(connection: AsyncConnection, events: Sequence[BaseModel]
 
 
 async def migrate_event_log(database: AsyncEngine) -> None:
-    async with database.begin() as connection:
-        await connection.run_sync(_upgrade)
-
-
-def _upgrade(connection: Connection) -> None:
-    config = Config()
-    config.set_main_option("script_location", str(MIGRATIONS))
-    config.attributes["connection"] = connection
-    command.upgrade(config, "head")
+    await apply_migrations(database, MIGRATIONS)
 
 
 class PostgresEventBus:
@@ -119,24 +112,8 @@ class PostgresEventBus:
 
     async def run(self, subscriptions: Sequence[Subscription[Any]], stop: asyncio.Event) -> None:
         await self._register(subscriptions)
-        news = [asyncio.Event() for _ in subscriptions]
-
-        def on_notify(*_: object) -> None:
-            for new_events in news:
-                new_events.set()
-
-        async with self._database.connect() as listening:
-            driver = (await listening.get_raw_connection()).driver_connection
-            assert driver is not None, "an open connection always has its driver connection"
-            await driver.add_listener(CHANNEL, on_notify)
-            try:
-                async with asyncio.TaskGroup() as tasks:
-                    for subscription, new_events in zip(subscriptions, news, strict=True):
-                        tasks.create_task(
-                            self._deliver_until_stopped(subscription, new_events, stop)
-                        )
-            finally:
-                await driver.remove_listener(CHANNEL, on_notify)
+        workers = [partial(self._deliver_next, subscription) for subscription in subscriptions]
+        await run_on_notifications(self._database, CHANNEL, workers, self._wait, stop)
 
     async def _register(self, subscriptions: Sequence[Subscription[Any]]) -> None:
         """Adds each new subscription with its cursor at the end of the log."""
@@ -150,28 +127,6 @@ class PostgresEventBus:
                     ),
                     {"name": subscription.name},
                 )
-
-    async def _deliver_until_stopped(
-        self, subscription: Subscription[Any], new_events: asyncio.Event, stop: asyncio.Event
-    ) -> None:
-        while not stop.is_set():
-            new_events.clear()  # Cleared before reading, so a notification during it is kept.
-            wait_seconds = await self._deliver_next(subscription)
-            if wait_seconds > 0:
-                await self._wait_for_news(new_events, wait_seconds, stop)
-
-    async def _wait_for_news(
-        self, new_events: asyncio.Event, seconds: float, stop: asyncio.Event
-    ) -> None:
-        tasks = {
-            asyncio.create_task(new_events.wait()),
-            asyncio.create_task(self._wait(seconds, stop)),
-        }
-        try:
-            await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-        finally:
-            for task in tasks:
-                task.cancel()
 
     async def _deliver_next(self, subscription: Subscription[Any]) -> float:
         """Delivers the subscription's next event. Returns 0 when it delivered or parked one, or

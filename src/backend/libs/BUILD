@@ -8,6 +8,7 @@ __dependencies_rules__(
         "//src/backend/libs/infra/events/**",
         "//src/backend/libs/infra/logs/**",
         "//src/backend/libs/infra/retry/**",
+        "//src/backend/libs/infra/tasks/**",
         "//src/backend/libs/testing/**",
         "//src/backend/modules/users/services/**",
         "//3rdparty/python#*",
@@ -20,23 +21,27 @@ __dependencies_rules__(
         "//src/backend/libs/infra/events/**",
         "//src/backend/libs/infra/logs/**",
         "//src/backend/libs/infra/retry/**",
+        "//src/backend/libs/infra/tasks/**",
         "//src/backend/libs/testing/**",
         "//3rdparty/python#*",
         "!*",
     ),
-    # The events lib reuses the cron lib's wait and the retry strategies, and keeps its migrations
-    # next to it.
+    # The event bus and the task queue reuse the cron lib's wait, the database helpers, and the
+    # retry strategies, and keep their migrations next to them.
     (
-        "/infra/events/**",
+        ("/infra/events/**", "/infra/tasks/**"),
         "./*",
         "./migrations",
         "./migrations/**",
         "//src/backend/libs/infra/cron/**",
+        "//src/backend/libs/infra/db/**",
         "//src/backend/libs/infra/logs/**",
         "//src/backend/libs/infra/retry/**",
         "//3rdparty/python#*",
         "!*",
     ),
+    # The database helpers sleep with the cron lib's wait.
+    ("/infra/db/**", "./*", "//src/backend/libs/infra/cron/**", "//3rdparty/python#*", "!*"),
     ("/infra/**", "./*", "//src/backend/libs/infra/logs/**", "//3rdparty/python#*", "!*"),
     # Test helpers run executables through the real runtime, with the users module's sign-in.
     (
