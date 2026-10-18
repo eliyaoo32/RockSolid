@@ -10,5 +10,5 @@ async def test_welcomes_each_new_client_who_has_an_email_address(driver: Welcome
         (str(avi), "uid-dana"),
         (str(dana), "uid-moshe"),
     ], "Noa has no email address, so she is not welcomed"
-    assert await driver.get.tasks_waiting() == 0, "each welcome ran once"
+    assert await driver.get.every_task_ran(), "no welcome is left waiting"
     assert "avi@example.com" not in driver.get.text(), "email addresses are never logged"

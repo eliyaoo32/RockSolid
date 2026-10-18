@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
-from libs.infra.cron.cron import Wait, wait_or_stop
+from libs.infra.cron.cron import Wait, wait_until
 from libs.infra.db.migrations import apply_migrations
 from libs.infra.db.notifications import run_on_notifications
 from libs.infra.logs.json_logs import request_id
@@ -35,7 +35,7 @@ CHANNEL = "tasks"
 # How a handler's failing tasks are retried unless it chooses its own strategy.
 DEFAULT_RETRY = Exponential()
 # When no notification arrives, a handler still checks the queue this often.
-POLL_SECONDS = 30.0
+POLL = timedelta(seconds=30)
 
 
 def task_type_of(task_class: type[BaseModel]) -> str:
@@ -107,19 +107,19 @@ class PostgresTaskQueue:
     """
 
     def __init__(
-        self, database: AsyncEngine, now: Callable[[], datetime], wait: Wait = wait_or_stop
+        self, database: AsyncEngine, now: Callable[[], datetime], wait: Wait | None = None
     ) -> None:
         self._database = database
         self._now = now
-        self._wait = wait
+        self._wait = wait or partial(wait_until, now)
 
     async def run(self, handlers: Sequence[TaskHandler[Any]], stop: asyncio.Event) -> None:
         workers = [partial(self._run_next, handler) for handler in handlers]
         await run_on_notifications(self._database, CHANNEL, workers, self._wait, stop)
 
-    async def _run_next(self, handler: TaskHandler[Any]) -> float:
-        """Runs the handler's next due task. Returns 0 when it ran or failed one, or how long to
-        wait: until a retry is due, or until new tasks may have arrived."""
+    async def _run_next(self, handler: TaskHandler[Any]) -> datetime | None:
+        """Runs the handler's next due task. Returns None when it ran or failed one, or when to
+        look again: when a retry is due, or when new tasks may have arrived."""
         task_type = task_type_of(handler.task)
         async with self._database.begin() as connection:
             task = (
@@ -133,7 +133,7 @@ class PostgresTaskQueue:
                 )
             ).one_or_none()
             if task is None:
-                return await self._seconds_until_next_retry(connection, task_type)
+                return await self._next_look(connection, task_type)
             token = request_id.set(task.request_id or f"task-{task_type}-{task.id}")
             try:
                 await handler.handle(handler.task.model_validate_json(task.payload))
@@ -145,15 +145,17 @@ class PostgresTaskQueue:
                     else handler.retry.delay_after(attempts)
                 )
                 await self._record_failure(connection, task_type, task.id, attempts, delay, error)
-                return 0
+                return None
             finally:
                 request_id.reset(token)
             await connection.execute(
                 text("DELETE FROM tasks.queue WHERE id = :id"), {"id": task.id}
             )
-            return 0
+            return None
 
-    async def _seconds_until_next_retry(self, connection: AsyncConnection, task_type: str) -> float:
+    async def _next_look(self, connection: AsyncConnection, task_type: str) -> datetime:
+        """When the type's next retry is due, or when new tasks may have arrived, whichever
+        comes first."""
         next_retry = (
             await connection.execute(
                 text(
@@ -162,9 +164,8 @@ class PostgresTaskQueue:
                 {"type": task_type, "now": self._now()},
             )
         ).scalar()
-        if next_retry is None:
-            return POLL_SECONDS
-        return min((next_retry - self._now()).total_seconds(), POLL_SECONDS)
+        poll = self._now() + POLL
+        return poll if next_retry is None else min(next_retry, poll)
 
     async def _record_failure(
         self,

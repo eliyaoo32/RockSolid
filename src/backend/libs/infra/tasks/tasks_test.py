@@ -123,7 +123,11 @@ async def test_runs_each_task_once_with_the_handler_of_its_type(queue: Queue) ->
 
     await eventually(lambda: len(queue.handled.invites) == 3 and queue.handled.badges == ["Noa"])
     assert queue.handled.invites == ["before start", "Avi", "Dana"]
-    assert await queue.rows("SELECT id FROM tasks.queue") == [], "a task is gone once it ran"
+
+    async def queue_is_empty() -> bool:
+        return await queue.rows("SELECT id FROM tasks.queue") == []
+
+    await eventually(queue_is_empty)  # A task is gone once it ran, when its transaction commits.
 
 
 async def test_never_runs_a_task_whose_transaction_rolled_back(queue: Queue) -> None:

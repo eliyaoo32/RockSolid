@@ -22,10 +22,13 @@ class FakeTime:
             if until <= self._now:
                 reached.set()
 
-    async def wait(self, seconds: float, stop: asyncio.Event) -> None:
-        """Returns once the test has moved time `seconds` ahead, or once `stop` is set."""
+    async def wait(self, until: datetime, stop: asyncio.Event) -> None:
+        """Returns once the test has moved time to `until`, or once `stop` is set. A time already
+        passed returns at once."""
+        if until <= self._now:
+            return
         reached = asyncio.Event()
-        waiting = (self._now + timedelta(seconds=seconds), reached)
+        waiting = (until, reached)
         self._waiting.append(waiting)
         tasks = {asyncio.create_task(reached.wait()), asyncio.create_task(stop.wait())}
         try:

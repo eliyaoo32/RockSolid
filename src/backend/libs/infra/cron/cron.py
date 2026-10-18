@@ -10,6 +10,7 @@ from collections.abc import Callable, Coroutine, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime
+from functools import partial
 from typing import Any, Protocol
 from uuid import uuid4
 
@@ -19,7 +20,9 @@ from libs.infra.logs.json_logs import request_id
 
 logger = logging.getLogger(__name__)
 
-type Wait = Callable[[float, asyncio.Event], Coroutine[Any, Any, None]]
+# Waits until the clock reaches the given time, or until the event is set. A time already passed
+# returns at once, so a wait never depends on how late it starts.
+type Wait = Callable[[datetime, asyncio.Event], Coroutine[Any, Any, None]]
 
 
 class InvalidScheduleError(ValueError):
@@ -49,10 +52,10 @@ class CronRunner(Protocol):
         ...
 
 
-async def wait_or_stop(seconds: float, stop: asyncio.Event) -> None:
-    """Waits the given seconds, or less when `stop` is set first."""
+async def wait_until(now: Callable[[], datetime], until: datetime, stop: asyncio.Event) -> None:
+    """Waits until the clock `now` reaches `until`, or less when `stop` is set first."""
     with suppress(TimeoutError):
-        await asyncio.wait_for(stop.wait(), timeout=max(seconds, 0))
+        await asyncio.wait_for(stop.wait(), timeout=max((until - now()).total_seconds(), 0))
 
 
 class InProcessCronRunner:
@@ -62,9 +65,9 @@ class InProcessCronRunner:
     than the gap to its next time skips the times it missed.
     """
 
-    def __init__(self, now: Callable[[], datetime], wait: Wait = wait_or_stop) -> None:
+    def __init__(self, now: Callable[[], datetime], wait: Wait | None = None) -> None:
         self._now = now
-        self._wait = wait
+        self._wait = wait or partial(wait_until, now)
 
     async def run(self, jobs: Sequence[CronJob], stop: asyncio.Event) -> None:
         async with asyncio.TaskGroup() as tasks:
@@ -74,7 +77,7 @@ class InProcessCronRunner:
     async def _run_on_schedule(self, job: CronJob, stop: asyncio.Event) -> None:
         while not stop.is_set():
             next_time = croniter(job.schedule, self._now()).get_next(datetime)
-            await self._wait((next_time - self._now()).total_seconds(), stop)
+            await self._wait(next_time, stop)
             if stop.is_set():
                 return
             await _run_once(job)

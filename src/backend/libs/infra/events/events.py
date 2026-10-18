@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
-from libs.infra.cron.cron import Wait, wait_or_stop
+from libs.infra.cron.cron import Wait, wait_until
 from libs.infra.db.migrations import apply_migrations
 from libs.infra.db.notifications import run_on_notifications
 from libs.infra.logs.json_logs import request_id
@@ -35,7 +35,7 @@ CHANNEL = "domain_events"
 # How a subscription retries a failing handler unless it chooses its own strategy.
 DEFAULT_RETRY = Exponential()
 # When no notification arrives, a subscription still checks the log this often.
-POLL_SECONDS = 30.0
+POLL = timedelta(seconds=30)
 
 
 def event_type_of(event_class: type[BaseModel]) -> str:
@@ -104,11 +104,11 @@ class PostgresEventBus:
     """
 
     def __init__(
-        self, database: AsyncEngine, now: Callable[[], datetime], wait: Wait = wait_or_stop
+        self, database: AsyncEngine, now: Callable[[], datetime], wait: Wait | None = None
     ) -> None:
         self._database = database
         self._now = now
-        self._wait = wait
+        self._wait = wait or partial(wait_until, now)
 
     async def run(self, subscriptions: Sequence[Subscription[Any]], stop: asyncio.Event) -> None:
         await self._register(subscriptions)
@@ -128,9 +128,9 @@ class PostgresEventBus:
                     {"name": subscription.name},
                 )
 
-    async def _deliver_next(self, subscription: Subscription[Any]) -> float:
-        """Delivers the subscription's next event. Returns 0 when it delivered or parked one, or
-        how long to wait: until a retry is due, or until new events may have arrived."""
+    async def _deliver_next(self, subscription: Subscription[Any]) -> datetime | None:
+        """Delivers the subscription's next event. Returns None when it delivered or parked one,
+        or when to try again: when a retry is due, or when new events may have arrived."""
         async with self._database.begin() as connection:
             state = (
                 await connection.execute(
@@ -142,7 +142,7 @@ class PostgresEventBus:
                 )
             ).one_or_none()
             if state is None:
-                return POLL_SECONDS  # Another copy of the deployable is delivering it.
+                return self._now() + POLL  # Another copy of the deployable is delivering it.
             event = (
                 await connection.execute(
                     text(
@@ -153,9 +153,9 @@ class PostgresEventBus:
                 )
             ).one_or_none()
             if event is None:
-                return POLL_SECONDS
+                return self._now() + POLL
             if state.failed_event_id == event.id and state.retry_at > self._now():
-                return (state.retry_at - self._now()).total_seconds()
+                return state.retry_at
             token = request_id.set(event.request_id or f"event-{subscription.name}-{event.id}")
             try:
                 await subscription.handle(subscription.event.model_validate_json(event.payload))
@@ -166,14 +166,13 @@ class PostgresEventBus:
                     if isinstance(error, NonRetryableError)
                     else subscription.retry.delay_after(attempts)
                 )
-                await self._record_failure(
+                return await self._record_failure(
                     connection, subscription, event.id, attempts, delay, error
                 )
-                return delay or 0
             finally:
                 request_id.reset(token)
             await self._advance(connection, subscription, event.id)
-            return 0
+            return None
 
     async def _record_failure(
         self,
@@ -183,8 +182,11 @@ class PostgresEventBus:
         attempts: int,
         delay: float | None,
         error: Exception,
-    ) -> None:
+    ) -> datetime | None:
+        """Schedules the event's retry and returns when it is due, or parks the event and
+        returns None."""
         if delay is not None:
+            retry_at = self._now() + timedelta(seconds=delay)
             logger.warning(
                 "event %d failed for subscription %s, attempt %d",
                 event_id,
@@ -201,10 +203,10 @@ class PostgresEventBus:
                     "name": subscription.name,
                     "event_id": event_id,
                     "attempts": attempts,
-                    "retry_at": self._now() + timedelta(seconds=delay),
+                    "retry_at": retry_at,
                 },
             )
-            return
+            return retry_at
         logger.error(
             "event %d parked for subscription %s after %d attempts",
             event_id,
@@ -220,6 +222,7 @@ class PostgresEventBus:
             {"name": subscription.name, "event_id": event_id, "error": repr(error)},
         )
         await self._advance(connection, subscription, event_id)
+        return None
 
     async def _advance(
         self, connection: AsyncConnection, subscription: Subscription[Any], event_id: int

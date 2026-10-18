@@ -44,9 +44,17 @@ class _Get:
         await eventually(lambda: len(self.welcomes()) >= count)
         return self.welcomes()
 
-    async def tasks_waiting(self) -> int:
-        async with self._database.connect() as connection:
-            return (await connection.execute(text("SELECT count(*) FROM tasks.queue"))).scalar_one()
+    async def every_task_ran(self) -> bool:
+        """True once no task is left in the queue. A task leaves it when its run commits, just
+        after its handler returns."""
+
+        async def queue_is_empty() -> bool:
+            async with self._database.connect() as connection:
+                found = await connection.execute(text("SELECT count(*) FROM tasks.queue"))
+                return found.scalar_one() == 0
+
+        await eventually(queue_is_empty)
+        return True
 
     def text(self) -> str:
         return self._logs.text
