@@ -14,7 +14,7 @@ export default defineConfig({
   },
   // The Firebase settings live in the root .env, shared with the backend.
   // Only FIREBASE_* variables reach the browser bundle, so they hold only the public web config.
-  envDir: resolve(import.meta.dirname, "../.."),
+  envDir: resolve(import.meta.dirname, "../../.."),
   envPrefix: "FIREBASE_",
   server: {
     // Calls to the generated services (`/<package>.v<N>.<Service>/<Method>`) go to the local backend.

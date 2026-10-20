@@ -2,10 +2,21 @@
 # BASE is the git ref that contracts must stay compatible with.
 BASE ?= main
 
-.PHONY: verify contracts generated generate web
+.PHONY: verify contracts generated generate web e2e e2e-frontend
 
-verify: contracts generated web
+verify: contracts generated web e2e-frontend
 	pants verify ::
+
+# Runs only the E2E tests.
+e2e: e2e-frontend
+	pants test src/tests/e2e::
+
+# Builds the production frontend where the E2E tests serve it from, with a made-up Firebase web
+# config that matches theirs (`src/tests/e2e/framework/system.py`).
+e2e-frontend:
+	FIREBASE_API_KEY=e2e-api-key FIREBASE_AUTH_DOMAIN=app.test FIREBASE_PROJECT_ID=rocksolid-e2e \
+	FIREBASE_APP_ID=e2e-app \
+	pnpm --filter @rocksolid/web-app exec vite build --outDir ../../tests/e2e/frontend-build --emptyOutDir
 
 # Lints, typechecks, tests, and builds the TypeScript packages: the wireframe and the frontend.
 web:

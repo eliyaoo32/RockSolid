@@ -64,7 +64,7 @@ Where the guidelines, the process and the structure is defined well for building
 
 ## Product-building process
 
-1. **Wireframe first.** `src/wireframe/` is a simple React app that shows how the product looks and feels on mobile and desktop, without business logic. A feature that changes the UI starts there: the agent maps the user's flow, designs it with the `ui-ux-pro-max` skill, records every decision in `src/wireframe/README.md`, and the owner approves it. The frontend developer designs the states the wireframe leaves out, such as empty lists and errors, and the owner approves them.
+1. **Wireframe first.** `src/clients/wireframe/` is a simple React app that shows how the product looks and feels on mobile and desktop, without business logic. A feature that changes the UI starts there: the agent maps the user's flow, designs it with the `ui-ux-pro-max` skill, records every decision in `src/clients/wireframe/README.md`, and the owner approves it. The frontend developer designs the states the wireframe leaves out, such as empty lists and errors, and the owner approves them.
 
 2. Create a blueprint document for this feature, together with its `.proto` contracts, and get the owner's approval (see [Features Blueprint Document](#features-blueprint-document)).
 
@@ -175,11 +175,34 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 
 ## Testing
 
-* **Three levels:** unit tests for domain code, component tests for one executable through its contract, and E2E tests for the whole system through the UI.
+* **Three levels, each at the lowest level that can catch the bug:** unit tests for domain rules and each frontend file, component tests for one executable or the whole frontend, and E2E tests for the real system: every backend deployable and the production frontend build in Chrome, run together by `pants test`.
 * **Tests read as scenarios.** Drivers hide how each step is done, so a test shows only what happens.
 * **Every external dependency is faked through injection**, using the same runtime as production. No test reaches a real third party.
 * **Always tested:** permissions, tenant isolation, full recovery from every failure, and crash recovery.
 * **100% coverage with genuine assertions**, so tests catch real regressions.
+
+### How E2E Tests Work
+
+E2E tests live in `src/tests/e2e/` and are Python tests with Playwright, run by `pants test` like every other test. `make e2e` runs only them, and `make verify` includes them.
+
+* **The real system, without Docker images:** each test gets an empty database on an ephemeral Postgres, and every backend deployable runs on it as its own process, the way production runs it: `migrate`, then `serve`. A deployable is any folder in `src/backend/deployables/` with a `main.py`, so a new one joins the tests without being listed anywhere.
+* **The production frontend build:** `make e2e-frontend` builds the frontend into the test's folder. The browser opens a made-up origin, `http://app.test`, and the test answers it: each call to a generated service goes to the deployable whose executables serve it, and every other path gets the build, so the app and its backend share one origin as they do in production.
+* **Google Chrome as installed:** the tests use the Chrome already on the machine, so no browser is downloaded. GitHub's runners have it too.
+* **Signing in with a debug user, not with Google:** Firebase's Google sign-in window loads Google's scripts from the internet, and no test reaches a third party. The frontend's code stays exactly as in production; instead:
+  * the backend runs with `DEBUG=true`, `DEBUG_USER_JWT`, and `DEBUG_USER_NAME`. It then signs in only that token, as that one user, and `GetCurrentUser` returns them. Without `DEBUG=true`, the token signs in nobody, and a test proves it;
+  * every browser starts with a Firebase session in its storage, the way the Firebase SDK keeps a user who signed in before, with `DEBUG_USER_JWT` as the ID token. The app restores it and sends the token to the backend;
+  * the one call the Firebase SDK makes to Google on restoring a session, `accounts:lookup`, gets a fake answer, and every other request off the app's origin fails;
+  * the Google sign-in button itself is covered by the frontend's unit tests, against a fake of Firebase. E2E tests never click it.
+
+  `DEBUG` is never true in production.
+* **Real time:** the backend keeps the real clock, so behavior that depends on time, such as cron jobs and retries, is tested in component tests with `FakeTime`.
+
+What an E2E test covers:
+
+* **Each feature's main journey,** across screens, the way a user does it, including reloads and coming back later.
+* **Failures that need real processes,** such as the backend restarting in the middle of a journey. Business-rule edge cases stay in unit and component tests.
+* **Every RPC the frontend calls,** at least once through the UI.
+* **Scenarios through a driver:** `driver.when.*` acts in the browser and `driver.get.*` returns what the user sees. Assertions use Playwright's `expect`, which waits for the page instead of sleeping.
 
 ## Tech Stack
 
@@ -191,7 +214,7 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 
 * Frontend in React + Vite - No need for frontend server since the expectation is that the frontend will be simple and without much of business-logic, everything should be done on the backend and the frontend only display data from backend or send actions to the backend.
 
-* pnpm workspace - `src/frontend`, `src/wireframe`, and the TypeScript generated from the contracts (`src/generated/typescript`, imported as `@rocksolid/api`) are one pnpm workspace.
+* pnpm workspace - `src/clients/web-app`, `src/clients/wireframe`, and the TypeScript generated from the contracts (`src/generated/typescript`, imported as `@rocksolid/api`) are one pnpm workspace.
 
 * React Router, TanStack Query, and Connect - The frontend routes every screen by URL, caches backend data with TanStack Query, and calls the backend through clients generated from the contracts.
 

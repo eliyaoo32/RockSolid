@@ -1,3 +1,5 @@
+# Production and test packages share one resolve. A deployable packs only the packages its own
+# code imports, so test-only ones (pytest, playwright, testcontainers) never reach production.
 alembic
 asyncpg
 connectrpc
@@ -6,6 +8,7 @@ cryptography
 greenlet
 httpx
 odata-query
+playwright
 protobuf-py
 pydantic-settings
 pydantic[email]
@@ -13,6 +16,7 @@ pyjwt[crypto]
 pytest
 pytest-asyncio
 pytest-cov
+pytest-playwright
 sqlalchemy[asyncio]
 sqlmodel
 testcontainers[postgres]

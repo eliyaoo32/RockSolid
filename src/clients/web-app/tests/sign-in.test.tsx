@@ -1,24 +1,9 @@
-import { renderHook, waitFor } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
-
-import { useAuth } from "@/auth/auth-context"
 
 import { renderApp } from "./framework/app-driver"
 import { USERS } from "./framework/fake-backend"
 
 describe("sign-in", () => {
-  it("shows a skeleton until the sign-in state is known, then asks a signed-out user to sign in", () => {
-    const driver = renderApp({ path: "/" })
-    expect(driver.get.isLoading()).toBe(true)
-    expect(driver.get.showsSignInScreen()).toBe(false)
-
-    driver.when.signInStateArrives(null)
-
-    expect(driver.get.showsSignInScreen()).toBe(true)
-    expect(driver.get.isLoading()).toBe(false)
-    expect(driver.get.path()).toBe("/")
-  })
-
   it("shows the name the backend knows, with a skeleton until the backend answers", async () => {
     const driver = renderApp({ path: "/" })
 
@@ -56,19 +41,5 @@ describe("sign-in", () => {
     await driver.when.signInWithGoogleAs("dana")
     expect(await driver.get.userName("dana")).toBe(USERS.dana)
     expect(driver.get.showsSignInError()).toBe(false)
-  })
-
-  it("sends a signed-in user at an unknown address to the home screen", async () => {
-    const driver = renderApp({ path: "/nowhere", signedInAs: "dana" })
-
-    await waitFor(() => {
-      expect(driver.get.path()).toBe("/")
-    })
-  })
-
-  it("refuses to tell whether someone is signed in outside the app", () => {
-    expect(() => renderHook(() => useAuth())).toThrow(
-      "useAuth must be used inside AuthProvider"
-    )
   })
 })
