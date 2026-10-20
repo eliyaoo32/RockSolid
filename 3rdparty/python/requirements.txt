@@ -10,6 +10,7 @@ httpx
 odata-query
 playwright
 protobuf-py
+pydantic-ai-slim[ag-ui,openai,web]
 pydantic-settings
 pydantic[email]
 pyjwt[crypto]

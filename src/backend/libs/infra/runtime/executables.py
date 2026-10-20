@@ -8,11 +8,16 @@ from datetime import datetime
 from typing import Any, ClassVar, Protocol
 
 from connectrpc.interceptor import MetadataInterceptor
+from pydantic_ai import Agent
+from pydantic_ai.usage import UsageLimits
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from libs.infra.cron.cron import CronJob
 from libs.infra.events.events import Subscription
+from libs.infra.llm.models import Models
+from libs.infra.runtime.agents import AgentDeps, AgentEndpoint
 from libs.infra.tasks.tasks import TaskHandler
+from modules.conversations.services.setup import create_conversation_service
 from modules.users.services.auth import Auth
 
 type Scope = MutableMapping[str, Any]
@@ -30,6 +35,8 @@ class Infra:
     database: AsyncEngine
     auth: Auth
     now: Callable[[], datetime]
+    # The language models agents choose from.
+    models: Models
 
 
 class Executable:
@@ -101,3 +108,35 @@ class RpcServiceExecutable(HttpExecutable):
 
     def routes(self) -> Mapping[str, ASGIApp]:
         return {self._application.path: self._application}
+
+
+class AgentExecutable(HttpExecutable, ABC):
+    """Serves one Pydantic AI agent over AG-UI at `/agents/<name>`, and keeps each caller's
+    conversations with it on the server."""
+
+    # Names the agent's route and its conversations, so it stays the same across releases.
+    name: ClassVar[str]
+    # True: every caller must sign in. False: anonymous callers talk to the agent too.
+    require_auth: ClassVar[bool]
+    # Bounds one run, so a model that keeps calling tools cannot run, or cost, without end.
+    usage_limits: ClassVar[UsageLimits] = UsageLimits(request_limit=20, tool_calls_limit=50)
+
+    def __init__(self, infra: Infra) -> None:
+        super().__init__(infra)
+        self.endpoint = AgentEndpoint(
+            name=self.name,
+            agent=self.agent(),
+            require_auth=self.require_auth,
+            usage_limits=self.usage_limits,
+            auth=infra.auth,
+            conversations=create_conversation_service(infra.database, infra.now),
+        )
+        self._application = self.endpoint.application()
+
+    @abstractmethod
+    def agent(self) -> Agent[AgentDeps, str]:
+        """Builds the agent, with its model from `infra.models`, its instructions, and its tools.
+        The runtime calls it once, at startup."""
+
+    def routes(self) -> Mapping[str, ASGIApp]:
+        return {self.endpoint.path: self._application}

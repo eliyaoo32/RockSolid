@@ -1,15 +1,20 @@
 # Import rules for every lib, written once. A lib never uses a module, with one exception: the
-# runtime builds the users module's sign-in service, because every API needs the caller.
+# runtime builds the users module's sign-in service, because every API and agent needs the
+# caller, and the conversations module's service, because every agent keeps its conversations.
 __dependencies_rules__(
     (
         "/infra/runtime/**",
         "./*",
         "//src/backend/libs/infra/cron/**",
         "//src/backend/libs/infra/events/**",
+        "//src/backend/libs/infra/llm/**",
         "//src/backend/libs/infra/logs/**",
         "//src/backend/libs/infra/retry/**",
         "//src/backend/libs/infra/tasks/**",
         "//src/backend/libs/testing/**",
+        "//src/backend/modules/conversations/domain/**",
+        "//src/backend/modules/conversations/services/**",
+        "//src/backend/modules/users/domain/**",
         "//src/backend/modules/users/services/**",
         "//3rdparty/python#*",
         "!*",
@@ -19,10 +24,14 @@ __dependencies_rules__(
         {"type": "python_test*", "path": "/infra/**"},
         "./*",
         "//src/backend/libs/infra/events/**",
+        "//src/backend/libs/infra/llm/**",
         "//src/backend/libs/infra/logs/**",
         "//src/backend/libs/infra/retry/**",
         "//src/backend/libs/infra/tasks/**",
         "//src/backend/libs/testing/**",
+        "//src/backend/modules/conversations/domain/**",
+        "//src/backend/modules/conversations/services/**",
+        "//src/backend/modules/users/services/**",
         "//3rdparty/python#*",
         "!*",
     ),
@@ -48,6 +57,7 @@ __dependencies_rules__(
         "/testing/**",
         "./*",
         "//src/backend/libs/infra/**",
+        "//src/backend/modules/users/domain/**",
         "//src/backend/modules/users/services/**",
         "//3rdparty/python#*",
         "!*",

@@ -1,0 +1,6 @@
+data: {"id":"chatcmpl-e2e","object":"chat.completion.chunk","created":1760691600,"model":"deepseek-v4.1-flash:cloud","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello from the fake model."},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-e2e","object":"chat.completion.chunk","created":1760691600,"model":"deepseek-v4.1-flash:cloud","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+data: [DONE]
+

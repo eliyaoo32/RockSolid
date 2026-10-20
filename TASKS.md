@@ -44,17 +44,18 @@
     - [x] Build the tasks queue on Postgres
     - [x] Build the domain events bus on Postgres
     - [ ] TODO: clean up old events in the event log
-    - [ ] Build the AI agent runtime with Pydantic AI
+    - [x] Build the AI agent runtime with Pydantic AI
+    - [ ] TODO: delete old conversations
+    - [ ] TODO: trim conversations that outgrow the model's context
 
 - [ ] AI agent framework
-    - [ ] Expose agents over AG-UI in deployables
-    - [ ] Expose agent web chat in dev mode
-    - [ ] Build the APICall tool for ConnectRPC methods
-    - [ ] Run APICall with the signed-in user's credentials
-    - [ ] Generate the RPC agent skill from protos
-    - [ ] Test agents with Pydantic AI's TestModel
-    - [ ] Set up pydantic-evals suites for agents
-    - [ ] Run agent evals in a separate GitHub Action
+    - [x] Expose agents over AG-UI in deployables
+    - [x] Expose agent web chat in debug mode
+    - [x] Keep agent conversations on the server
+    - [x] Run agent tools as the signed-in user
+    - [x] Test agents with Pydantic AI's FunctionModel
+    - [ ] TODO: set up pydantic-evals suites for agents
+    - [ ] TODO: run agent evals in a separate GitHub Action
 
 - [ ] Deployables
     - [x] Define how the bootstrapper works
@@ -66,7 +67,7 @@
 
 - [ ] Authentication
     - [x] Verify Firebase JWT in RPC endpoints
-    - [ ] Verify Firebase JWT in AG-UI endpoints
+    - [x] Verify Firebase JWT in AG-UI endpoints
     - [ ] Add Firebase sign-in to the frontend
 
 - [ ] Frontend
@@ -84,7 +85,7 @@
     - [ ] Build fake third-party servers for E2E
     - [x] Build a fake Firebase token verifier
     - [x] Sign E2E users in with the backend's debug user
-    - [ ] Select the test LLM through an environment variable
+    - [x] Answer E2E agents from a fake Ollama server
     - [x] Add an injectable clock
     - [x] Add an eventually helper for async effects
     - [ ] Restrict src/backend/libs/testing to test code
@@ -92,7 +93,8 @@
 
 - [ ] Contacts example
     - [x] Build Clients CRUD across all tiers
-    - [ ] Build a Contacts assistant agent with evals
+    - [x] Build a clients assistant agent
+    - [ ] TODO: add evals to the clients assistant
 
 - [ ] AI instructions and skills (for Claude Code, Antigravity, Pi)
     - [ ] Write AGENTS.md with structure and guidelines

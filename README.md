@@ -114,14 +114,14 @@ Every executable is one of these five types:
 | **Cron Scheduler** | Runs jobs at fixed times or intervals. |
 | **Tasks Consumer** | Runs commands from a queue: work a module asks to have done. Each task type has one handler across all deployables, and each task runs until it succeeds, with retries. |
 | **Domain-Events Listener** | Reacts to domain events: facts that already happened in some domain. An event can have any number of listeners, and the publisher does not know them. |
-| **AI Agent** | Runs a Pydantic AI agent that users talk to. |
+| **AI Agent** | Serves a Pydantic AI agent that users talk to, over AG-UI, and keeps each conversation on the server. |
 
 An executable is a class. The runtime knows two kinds:
 
 * **HTTP executables** (RPC services and AI agents) give the runtime their routes, which it mounts on the deployable's one HTTP server.
 * **Background executables** (cron schedulers, tasks consumers, and domain-events listeners) work outside HTTP.
 
-Each executable type has its own base class under these two, which holds the wiring every executable of that type shares. `RpcServiceExecutable` mounts one ConnectRPC service and signs in every call. `CronExecutable`, `TasksConsumerExecutable`, and `DomainEventsListenerExecutable` hold as many cron jobs, task handlers, and subscriptions as their business area needs. Each executable class names the module schemas it needs migrated, so the runtime migrates them without building it.
+Each executable type has its own base class under these two, which holds the wiring every executable of that type shares. `RpcServiceExecutable` mounts one ConnectRPC service and signs in every call. `AgentExecutable` serves the agent its `agent()` method returns. `CronExecutable`, `TasksConsumerExecutable`, and `DomainEventsListenerExecutable` hold as many cron jobs, task handlers, and subscriptions as their business area needs. Each executable class names the module schemas it needs migrated, so the runtime migrates them without building it.
 
 ### Deployables
 
@@ -134,11 +134,12 @@ A deployable is a list of the executable classes it runs, in one process. The ru
 * **Cron jobs:** the runtime hands every cron job to its cron runner, which decides how jobs are triggered. The first runner runs them inside the process; another runner, such as a hosted scheduler, can replace it without changing the executables.
 * **Domain events:** a module publishes an event in the same transaction as the change it describes, into one event log in Postgres. The runtime delivers every listener executable's subscriptions from that log: each subscription has its own cursor, receives its event type in order, at least once, and is retried as the subscription's retry strategy says when its handler fails, until the event is parked. Only one running copy of a deployable delivers each subscription. Another bus, such as a hosted broker, can replace the Postgres one without changing listeners.
 * **Tasks:** a module queues a task in the same transaction as the change that asks for it, into one queue in Postgres. The runtime runs every consumer executable's handlers from that queue: each task runs at least once, by the one handler of its type, and is retried as the handler's retry strategy says when it fails, until the task is parked. A task stays locked while it runs, so when a process crashes, its task returns to the queue. Work that recurs, such as every two hours, is a cron job that queues a task. Another queue, such as a hosted broker, can replace the Postgres one without changing consumers.
+* **Agents:** the runtime serves every agent executable over AG-UI at `/agents/<name>`, signs the caller in, and keeps the conversation (see AI Agents).
 * **Graceful shutdown:** on SIGTERM, it stops taking new work, lets running work finish, and closes the pools.
 
 ### Dependency Injection
 
-* Only the runtime creates infra: the database pool, the clock, and the sign-in service. The runtime builds each executable with it, and the executable takes only what it needs.
+* Only the runtime creates infra: the database pool, the clock, the sign-in service, and the language models. The runtime builds each executable with it, and the executable takes only what it needs.
 * The runtime is the only code that reads configuration, from environment variables.
 * All executables in a deployable share one database pool.
 
@@ -147,16 +148,31 @@ A deployable is a list of the executable classes it runs, in one process. The ru
 * Holds the technical capabilities that belong to no business module, such as the database pool and the domain-events bus.
 * It is organized by capability: `src/backend/libs/infra/<capability>/`, such as `db/` and `events/`. Each capability folder holds its interface, its provider implementations, and its transport hooks, such as interceptors.
 * A capability with business meaning is a module, not a lib. Signing users in belongs to the users module.
-* The runtime builds the users module's sign-in service, because every API needs the caller. It is the only lib that uses a module.
+* The runtime builds the users module's sign-in service, because every API and agent needs the caller, and the conversations module's service, because every agent keeps its conversations. It is the only lib that uses modules.
 
 ### AI Agents
 
-Agents are plain Pydantic AI agents. The framework adds common tools, agent skills, and evals on top of Pydantic AI, without wrapping it.
+Agents are plain Pydantic AI agents. An agent executable's `agent()` returns the agent, with its model, instructions, and tools; the runtime serves it.
 
-* **Exposure:** in production, the deployable exposes each agent over the AG-UI protocol. In dev mode, it can also expose each agent through [Pydantic AI's web chat](https://pydantic.dev/docs/ai/guides/web/), which is never exposed in production.
-* **`APICall(service, method, params)` tool:** lets an agent call any ConnectRPC method with the signed-in user's credentials, so the agent has exactly the user's permissions. Agents reach modules only through RPC, never through module code directly.
-* **RPC agent skill:** Uses the `.proto` contracts. It shows the agent the available services, methods, and parameters, and how to call them with `APICall`.
-* **Evals:** every agent has a `pydantic-evals` suite from day one.
+* **Over AG-UI:** each agent answers at `/agents/<name>`. One request carries one message and streams the answer back as AG-UI events.
+* **Signing in:** an agent with `require_auth` refuses a caller who is not signed in, with `401`; any other agent also talks to anonymous callers. An invalid token is always refused. The check is the same sign-in the RPC API uses.
+* **Acting as the user:** every run gets the caller in its deps. Tools act through module services with that caller, so an agent can do only what its user can.
+* **Conversations live on the server**, in the conversations module, one per agent, caller, and AG-UI thread. A client resends its whole thread with every message, as AG-UI clients do, and the runtime keeps only the newest message: what the agent was told before comes from the server, so a client cannot rewrite it. Another caller's thread with the same ID is another conversation. An anonymous caller's thread ID is the only key to their conversation.
+* **One message at a time:** while a conversation answers a message, another message to it is refused with `409`, which the AG-UI client reports as an error. A run whose process died frees the conversation after 10 minutes.
+* **Failures keep the conversation as it was:** a run that fails ends with an AG-UI `RUN_ERROR` that says only that the agent could not answer; the failure itself is logged, never sent to the client.
+* **Models:** each agent executable names its own model, through `infra.models`, such as `infra.models.ollama("deepseek-v4.1-flash:cloud")`. The deployable's settings say where each provider runs and its API key, and an agent whose provider has no API key stops the deployable from starting.
+* **Limits:** each run is bounded in model requests and tool calls, so a model cannot loop, or cost, without end.
+
+### Debug Mode
+
+`DEBUG=true` is for local runs and E2E tests, never production. It changes exactly these, and nothing else:
+
+* **The debug user:** with `DEBUG_USER_JWT` set, only that token signs in, as one user named `DEBUG_USER_NAME`, and Firebase signs in nobody.
+* **Each agent's web chat:** with `DEBUG_USER_JWT` set, each agent also gets [Pydantic AI's web chat](https://pydantic.dev/docs/ai/guides/web/), on `127.0.0.1` from `DEBUG_CHAT_PORT` (default 8100) up, one port per agent in the deployable's order. The chat:
+  * signs in as the debug user, so anyone who can reach the port talks as them;
+  * answers on this machine only, and refuses any other host;
+  * keeps its conversation in the browser, not on the server;
+  * loads its page from the jsDelivr CDN, and caches it in `~/.cache/pydantic-ai/web-ui`.
 
 ### API Design
 
@@ -195,6 +211,7 @@ E2E tests live in `src/tests/e2e/` and are Python tests with Playwright, run by 
   * the Google sign-in button itself is covered by the frontend's unit tests, against a fake of Firebase. E2E tests never click it.
 
   `DEBUG` is never true in production.
+* **Agents answer from a fake Ollama:** the backend's `OLLAMA_BASE_URL` points at a local server that streams a committed answer to every request and records what it was asked, so a test can check what the model was told, such as a conversation's history after a restart.
 * **Real time:** the backend keeps the real clock, so behavior that depends on time, such as cron jobs and retries, is tested in component tests with `FakeTime`.
 
 What an E2E test covers:

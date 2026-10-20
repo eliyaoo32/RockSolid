@@ -10,7 +10,7 @@
 - **Never edit generated code by hand.** Change the `.proto` file and regenerate.
 - **Never read environment variables outside the runtime's `InfraSettings` and the frontend's `src/clients/web-app/src/config.ts`.**
 - **Never send a request to a real third party from a test.**
-- **Never run a deployable with `DEBUG=true` in production:** a debug backend with `DEBUG_USER_JWT` signs that one token in without Firebase.
+- **Never run a deployable with `DEBUG=true` in production:** a debug backend with `DEBUG_USER_JWT` signs that one token in without Firebase, and serves each agent's web chat as that user.
 - **Never spend money without approval:** no paid services, paid API calls, or paid CI resources unless the owner approves.
 
 ## Working Style
@@ -66,7 +66,7 @@ src/tests/e2e/                         # E2E tests of the whole system
 
 ### Services and Interceptors
 - **Capabilities Are Services:** An executable's constructor takes services: the module services it serves, and the services it uses, such as `Auth`. It never takes bare functions, settings, or a provider's client.
-- **Checks for Every Call Run in Interceptors:** Sign-in runs once per call, in the `Auth` interceptor registered on the API (`interceptors=[auth]`). Handlers call `auth.from_ctx(ctx)` for the caller and never read headers themselves.
+- **Checks for Every Call Run in Interceptors:** Sign-in runs once per call, in the `Auth` interceptor registered on the API (`interceptors=[auth]`). Handlers call `auth.from_ctx(ctx)` for the caller and never read headers themselves. For an agent, the runtime signs in each request with the same `Auth`, and tools read the caller from their deps.
 - **Provider Code Lives With Its Capability:** A provider's implementation is a repository in the module that owns the capability (`src/backend/modules/users/repositories/firebase_users.py`), or lives in its capability's folder in `src/backend/libs/infra/`.
 
 ### Executables and Deployables
@@ -78,6 +78,9 @@ src/tests/e2e/                         # E2E tests of the whole system
 - **Tasks:** A task is a frozen Pydantic model in the module's `domain/` that asks for work, with a class-level `task_type` of the form `"<module>.<TaskClassName>"`. Name it in the imperative, after the work it asks for. The queue stores `task_type`, so it never changes; fields are only added, with defaults, so tasks already in the queue still load.
 - **Recurring Tasks:** Work that recurs, such as every two hours, is a cron job that queues a task.
 - **Consuming:** A consumer executable subclasses `TasksConsumerExecutable` and returns `TaskHandler(task_class, handler)` from `handlers()`. Each task type has exactly one handler across all deployables. A handler may run a task more than once, so it must be safe to run again. A handler's `retry` strategy and `NonRetryableError` work as they do for subscriptions, and a task that stops retrying is parked.
+- **Agents:** An agent executable subclasses `AgentExecutable`, sets `name` and `require_auth`, and returns its Pydantic AI `Agent[AgentDeps, str]` from `agent()`: its model from `self.infra.models`, named by a constant in the executable, its instructions, and its tools. The name keeps the agent's conversations, so it stays the same across releases.
+- **Tools Act as the Caller:** A tool gets the user only from `ctx.deps.signed_in_user_id()` and calls module services with it. It never takes a user ID as a parameter, so neither the model nor a prompt can act for another user. A tool turns a mistake the model can fix, such as an invalid filter, into `ModelRetry` with what is wrong.
+- **Debug Mode Is One List:** Every effect of `DEBUG=true` is listed in the README's "Debug Mode" section and in `.env.example`. A change that adds an effect adds it to both.
 - **A Deployable Is a List:** A deployable's `main.py` lists its executable classes and hands them to the runtime's `run`. It builds nothing itself.
 - **Logging:** Write logs with Python's `logging` module (`logger = logging.getLogger(__name__)`), never with `print`. The runtime turns every log line into JSON on stdout and adds the ID of the request it belongs to, so all the logs of one request can be found together.
 - **Migrate, Then Serve:** The image runs `migrate` once per release and `serve` on every replica. `serve` never migrates.
@@ -166,7 +169,7 @@ Each behavior is tested at the lowest level that can catch its bug, and each lev
   - **API-Driven Before the UI Exists:** A feature whose UI does not exist yet runs its E2E tests through the ConnectRPC API, with the generated client and the same rules. The feature that adds the UI adds the UI-driven tests.
   - **Several Scenarios per Feature:** Each feature has several E2E tests, each a chain of steps: the main lifecycle, and one for each family of failures, such as one of our services failing or a third party answering wrongly.
 - **Blueprint Scenarios Name Their Level:** Each scenario in a feature's blueprint names the level that tests it.
-- **Agents in Tests:** Component and E2E tests run AI agents on Pydantic AI's `TestModel` or `FunctionModel`. Only evals call a real model, and they run outside the verification command.
+- **Agents in Tests:** Component tests run AI agents on Pydantic AI's `TestModel` or `FunctionModel`, passed to `run_executables(models=FakeModels(...))`; no test may reach a real model. E2E tests point Ollama at a fake server that streams a committed answer. Only evals call a real model, and they run outside the verification command.
 
 ### Coverage
 - **100% Coverage:** Every line and branch is covered. The wireframe, generated code, generated UI primitives, and entry points that only wire and start the process (`src/backend/deployables/` and `src/clients/web-app/src/main.tsx`) are exempt. The frontend lists its exemptions only in `vite.config.ts`.
@@ -212,7 +215,7 @@ Only the runtime creates infra, so tests swap every external dependency the same
 | Database | Real ephemeral Postgres (testcontainers); each test starts from empty tables | Real ephemeral Postgres |
 | Other RPC services | A fake implementation of the generated service, served by a local test server | The real deployable, or the same fake |
 | Third-party HTTP APIs | Recorded responses replayed with `pytest-recording`; `respx` for one-off stubs | A fake server per third party, serving committed fixtures |
-| LLM | `TestModel` or `FunctionModel`, injected | The test model, selected through an environment variable |
+| LLM | `TestModel` or `FunctionModel`, injected through `FakeModels` | A fake Ollama server, set as `OLLAMA_BASE_URL`, streaming a committed answer |
 | Firebase Auth | A fake token verifier, injected | The backend's debug user (`DEBUG=true`, `DEBUG_USER_JWT`), signed in through a Firebase session the test stores in the browser |
 | Time | The injected clock | The real clock; time-driven behavior is tested in component tests |
 | Events and tasks | Real, on Postgres | Real, on Postgres |

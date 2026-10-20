@@ -1,7 +1,8 @@
 """Runs the whole system for E2E tests, each part the way it runs in production: every backend
 deployable as its own process on one fresh database, and the production frontend build in a
-real browser. The deployables run in debug mode, so the debug user signs in, and a fake stands
-in for the one Firebase Auth call the browser makes. No request leaves the machine."""
+real browser. The deployables run in debug mode, so the debug user signs in, a fake stands in
+for the one Firebase Auth call the browser makes, and a fake Ollama answers every agent. No
+request leaves the machine."""
 
 import asyncio
 import os
@@ -20,6 +21,7 @@ from playwright.sync_api import BrowserContext, Route
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from e2e.framework.fake_ollama import API_KEY, FakeOllama, running_fake_ollama
 from libs.infra.runtime.executables import Executable
 from libs.testing.deployables import every_deployable, http_routes
 from libs.testing.time import eventually
@@ -77,6 +79,7 @@ class Deployable:
         executables: Sequence[type[Executable]],
         database_url: str,
         debug: str | None,
+        ollama: FakeOllama,
     ) -> None:
         self.name = name
         self.routes = http_routes(executables)
@@ -89,6 +92,10 @@ class Deployable:
             "FIREBASE_PROJECT_ID": "rocksolid-e2e",
             "DEBUG_USER_JWT": DEBUG_USER_JWT,
             "DEBUG_USER_NAME": DEBUG_USER_NAME,
+            # Each agent's debug chat takes a free port, so tests running at once never collide.
+            "DEBUG_CHAT_PORT": "0",
+            "OLLAMA_BASE_URL": ollama.url,
+            "OLLAMA_API_KEY": API_KEY,
             "PORT": str(port),
         } | ({} if debug is None else {"DEBUG": debug})
 
@@ -110,8 +117,10 @@ class Deployable:
 class System:
     """Every deployable, running together on one database."""
 
-    def __init__(self, deployables: Sequence[Deployable]) -> None:
+    def __init__(self, deployables: Sequence[Deployable], ollama: FakeOllama) -> None:
         self.deployables = deployables
+        # What every agent's model answered, and what it was told.
+        self.ollama = ollama
 
     def serving(self, path: str) -> Deployable | None:
         """The deployable that answers `path`, or None when no deployable does."""
@@ -145,21 +154,23 @@ def running_system(server_url: str, debug: str | None = "true") -> Iterator[Syst
     block ends. `debug` is their `DEBUG` setting, or None to leave it unset; the debug user is
     always set."""
     database_url = _run(_create_database(server_url))
-    system = System(
-        [
-            Deployable(name, executables, database_url, debug)
-            for name, executables in every_deployable().items()
-        ]
-    )
-    for deployable in system.deployables:
-        deployable.migrate()
-    for deployable in system.deployables:
-        deployable.start()
-    try:
-        yield system
-    finally:
+    with running_fake_ollama() as ollama:
+        system = System(
+            [
+                Deployable(name, executables, database_url, debug, ollama)
+                for name, executables in every_deployable().items()
+            ],
+            ollama,
+        )
         for deployable in system.deployables:
-            deployable.stop()
+            deployable.migrate()
+        for deployable in system.deployables:
+            deployable.start()
+        try:
+            yield system
+        finally:
+            for deployable in system.deployables:
+                deployable.stop()
 
 
 def serve_the_app(context: BrowserContext, system: System) -> None:
