@@ -3,19 +3,19 @@ assertions that wait until it appears (`expect(driver.get.header()).to_contain_t
 
 from playwright.sync_api import Locator, Page
 
-from e2e.framework.system import APP_ORIGIN, Backend
+from e2e.framework.system import APP_ORIGIN, System
 
 
 class E2EDriver:
-    def __init__(self, page: Page, backend: Backend) -> None:
-        self.when = _When(page, backend)
+    def __init__(self, page: Page, system: System) -> None:
+        self.when = _When(page, system)
         self.get = _Get(page)
 
 
 class _When:
-    def __init__(self, page: Page, backend: Backend) -> None:
+    def __init__(self, page: Page, system: System) -> None:
         self._page = page
-        self._backend = backend
+        self._system = system
 
     def open_the_app(self) -> None:
         self._page.goto(f"{APP_ORIGIN}/")
@@ -26,8 +26,9 @@ class _When:
     def sign_out(self) -> None:
         self._page.get_by_role("button", name="Sign out").click()
 
-    def restart_backend(self) -> None:
-        self._backend.restart()
+    def restart_the_backend(self) -> None:
+        """Restarts every deployable, as a release does."""
+        self._system.restart()
 
 
 class _Get:

@@ -25,7 +25,7 @@ def test_keeps_the_user_signed_in_across_a_backend_restart(driver: E2EDriver) ->
     driver.when.open_the_app()
     expect(driver.get.header()).to_contain_text(DEBUG_USER_NAME)
 
-    driver.when.restart_backend()
+    driver.when.restart_the_backend()
     driver.when.reload()
 
     expect(driver.get.header()).to_contain_text(DEBUG_USER_NAME)

@@ -175,7 +175,7 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 
 ## Testing
 
-* **Three levels, each at the lowest level that can catch the bug:** unit tests for domain rules and each frontend file, component tests for one executable or the whole frontend, and E2E tests for the real system: the backend deployable and the production frontend build in Chrome, run together by `pants test`.
+* **Three levels, each at the lowest level that can catch the bug:** unit tests for domain rules and each frontend file, component tests for one executable or the whole frontend, and E2E tests for the real system: every backend deployable and the production frontend build in Chrome, run together by `pants test`.
 * **Tests read as scenarios.** Drivers hide how each step is done, so a test shows only what happens.
 * **Every external dependency is faked through injection**, using the same runtime as production. No test reaches a real third party.
 * **Always tested:** permissions, tenant isolation, full recovery from every failure, and crash recovery.
@@ -185,8 +185,8 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 
 E2E tests live in `src/tests/e2e/` and are Python tests with Playwright, run by `pants test` like every other test. `make e2e` runs only them, and `make verify` includes them.
 
-* **The real system, without Docker images:** each test gets an empty database on an ephemeral Postgres, and the backend deployable runs on it as its own process, the way production runs it: `migrate`, then `serve`.
-* **The production frontend build:** `make e2e-frontend` builds the frontend into the test's folder. The browser opens a made-up origin, `http://app.test`, and the test answers it: calls to the generated services go to the backend, and every other path gets the build, so the app and its backend share one origin as they do in production.
+* **The real system, without Docker images:** each test gets an empty database on an ephemeral Postgres, and every backend deployable runs on it as its own process, the way production runs it: `migrate`, then `serve`. A deployable is any folder in `src/backend/deployables/` with a `main.py`, so a new one joins the tests without being listed anywhere.
+* **The production frontend build:** `make e2e-frontend` builds the frontend into the test's folder. The browser opens a made-up origin, `http://app.test`, and the test answers it: each call to a generated service goes to the deployable whose executables serve it, and every other path gets the build, so the app and its backend share one origin as they do in production.
 * **Google Chrome as installed:** the tests use the Chrome already on the machine, so no browser is downloaded. GitHub's runners have it too.
 * **Signing in with a debug user, not with Google:** Firebase's Google sign-in window loads Google's scripts from the internet, and no test reaches a third party. The frontend's code stays exactly as in production; instead:
   * the backend runs with `DEBUG=true`, `DEBUG_USER_JWT`, and `DEBUG_USER_NAME`. It then signs in only that token, as that one user, and `GetCurrentUser` returns them. Without `DEBUG=true`, the token signs in nobody, and a test proves it;

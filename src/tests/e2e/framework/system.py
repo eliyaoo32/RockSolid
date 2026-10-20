@@ -1,15 +1,14 @@
-"""Runs the whole system for E2E tests, each part the way it runs in production: the backend
-deployable as its own process on a fresh database, and the production frontend build in a real
-browser. The backend runs in debug mode, so its debug user signs in, and a fake stands in for
-the one Firebase Auth call the browser makes. No request leaves the machine."""
+"""Runs the whole system for E2E tests, each part the way it runs in production: every backend
+deployable as its own process on one fresh database, and the production frontend build in a
+real browser. The deployables run in debug mode, so the debug user signs in, and a fake stands
+in for the one Firebase Auth call the browser makes. No request leaves the machine."""
 
 import asyncio
 import os
-import re
 import socket
 import subprocess
 import sys
-from collections.abc import Coroutine, Iterator
+from collections.abc import Coroutine, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path
@@ -21,9 +20,11 @@ from playwright.sync_api import BrowserContext, Route
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from libs.infra.runtime.executables import Executable
+from libs.testing.deployables import every_deployable, http_routes
 from libs.testing.time import eventually
 
-# The one user a debug backend signs in, and the token the browser holds for them.
+# The one user a debug deployable signs in, and the token the browser holds for them.
 DEBUG_USER_JWT = "e2e-debug-user-jwt"
 DEBUG_USER_NAME = "Dana Levi"
 # The debug user's Firebase account, as Firebase Auth describes it. Its name differs from the
@@ -38,8 +39,6 @@ FIREBASE_API_KEY = "e2e-api-key"
 # The frontend's origin in the browser. It never reaches DNS: the browser context answers it.
 APP_ORIGIN = "http://app.test"
 FRONTEND_BUILD = Path("src/tests/e2e/frontend-build")
-# Calls to the generated services: `/<package>.v<N>.<Service>/<Method>`.
-BACKEND_PATH = re.compile(r"^/\w+\.v\d+\.")
 STARTUP_TIMEOUT = 30
 
 
@@ -66,13 +65,21 @@ def _wait_until_up(url: str) -> None:
     _run(eventually(answers, timeout=STARTUP_TIMEOUT))
 
 
-class Backend:
-    """The backend deployable, run as its own process with the same code and commands as in
+class Deployable:
+    """One backend deployable, run as its own process with the same code and commands as in
     production: `migrate` once, then `serve`."""
 
     _process: subprocess.Popen[bytes]
 
-    def __init__(self, database_url: str, debug: str | None) -> None:
+    def __init__(
+        self,
+        name: str,
+        executables: Sequence[type[Executable]],
+        database_url: str,
+        debug: str | None,
+    ) -> None:
+        self.name = name
+        self.routes = http_routes(executables)
         port = _free_port()
         self.url = f"http://127.0.0.1:{port}"
         self._environment = {
@@ -86,7 +93,7 @@ class Backend:
         } | ({} if debug is None else {"DEBUG": debug})
 
     def _command(self, command: str) -> list[str]:
-        return [sys.executable, "-m", "deployables.backend.main", command]
+        return [sys.executable, "-m", f"deployables.{self.name}.main", command]
 
     def migrate(self) -> None:
         subprocess.run(self._command("migrate"), env=self._environment, check=True)
@@ -99,9 +106,25 @@ class Backend:
         self._process.terminate()
         self._process.wait()
 
+
+class System:
+    """Every deployable, running together on one database."""
+
+    def __init__(self, deployables: Sequence[Deployable]) -> None:
+        self.deployables = deployables
+
+    def serving(self, path: str) -> Deployable | None:
+        """The deployable that answers `path`, or None when no deployable does."""
+        return next(
+            (d for d in self.deployables if any(path.startswith(r) for r in d.routes)), None
+        )
+
     def restart(self) -> None:
-        self.stop()
-        self.start()
+        """Stops every deployable, then starts them all again, as a release does."""
+        for deployable in self.deployables:
+            deployable.stop()
+        for deployable in self.deployables:
+            deployable.start()
 
 
 async def _create_database(server_url: str) -> str:
@@ -117,29 +140,41 @@ async def _create_database(server_url: str) -> str:
 
 
 @contextmanager
-def running_backend(server_url: str, debug: str | None = "true") -> Iterator[Backend]:
-    """Migrates a fresh database and serves the backend on it until the block ends. `debug` is
-    the backend's `DEBUG` setting, or None to leave it unset; the debug user is always set."""
-    backend = Backend(_run(_create_database(server_url)), debug)
-    backend.migrate()
-    backend.start()
+def running_system(server_url: str, debug: str | None = "true") -> Iterator[System]:
+    """Migrates a fresh database with every deployable, and serves them all on it until the
+    block ends. `debug` is their `DEBUG` setting, or None to leave it unset; the debug user is
+    always set."""
+    database_url = _run(_create_database(server_url))
+    system = System(
+        [
+            Deployable(name, executables, database_url, debug)
+            for name, executables in every_deployable().items()
+        ]
+    )
+    for deployable in system.deployables:
+        deployable.migrate()
+    for deployable in system.deployables:
+        deployable.start()
     try:
-        yield backend
+        yield system
     finally:
-        backend.stop()
+        for deployable in system.deployables:
+            deployable.stop()
 
 
-def serve_the_app(context: BrowserContext, backend: Backend) -> None:
-    """Answers the browser's requests to the app's origin the way production does: the frontend
-    build and the backend's services, on one origin. Firebase Auth's account lookup gets the
-    debug user's account, and every other request off the origin fails."""
+def serve_the_app(context: BrowserContext, system: System) -> None:
+    """Answers the browser's requests to the app's origin the way production does: each call to
+    a service goes to the deployable that serves it, and every other path gets the frontend
+    build, all on one origin. Firebase Auth's account lookup gets the debug user's account, and
+    every other request off the origin fails."""
 
     def answer(route: Route) -> None:
-        url = urlsplit(route.request.url)
-        if BACKEND_PATH.match(url.path):
-            route.fulfill(response=route.fetch(url=backend.url + url.path))
+        path = urlsplit(route.request.url).path
+        deployable = system.serving(path)
+        if deployable is not None:
+            route.fulfill(response=route.fetch(url=deployable.url + path))
         else:
-            file = FRONTEND_BUILD / url.path.lstrip("/")
+            file = FRONTEND_BUILD / path.lstrip("/")
             route.fulfill(path=file if file.is_file() else FRONTEND_BUILD / "index.html")
 
     # Playwright tries the last route first, so the catch-all goes first.

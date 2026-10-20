@@ -13,7 +13,7 @@ from e2e.framework.system import (
     DEBUG_USER,
     DEBUG_USER_JWT,
     FIREBASE_API_KEY,
-    running_backend,
+    running_system,
     serve_the_app,
 )
 
@@ -55,6 +55,6 @@ def browser_context_args(browser_context_args: dict[str, Any]) -> dict[str, Any]
 
 @pytest.fixture
 def driver(database_url: str, page: Page) -> Iterator[E2EDriver]:
-    with running_backend(database_url) as backend:
-        serve_the_app(page.context, backend)
-        yield E2EDriver(page, backend)
+    with running_system(database_url) as system:
+        serve_the_app(page.context, system)
+        yield E2EDriver(page, system)
