@@ -10,6 +10,7 @@
 - **Never edit generated code by hand.** Change the `.proto` file and regenerate.
 - **Never read environment variables outside the runtime's `InfraSettings` and the frontend's `src/frontend/src/config.ts`.**
 - **Never send a request to a real third party from a test.**
+- **Never run a deployable with `DEBUG=true` in production:** a debug backend with `DEBUG_USER_JWT` signs that one token in without Firebase.
 - **Never spend money without approval:** no paid services, paid API calls, or paid CI resources unless the owner approves.
 
 ## Working Style
@@ -40,7 +41,7 @@ src/backend/executables/<name>/        # one executable, with its component test
 src/backend/deployables/<name>/        # one deployable: the list of executables it runs
 src/frontend/                          # the product frontend
 src/wireframe/                         # the approved look and feel
-src/e2e/                               # the E2E package
+src/tests/e2e/                         # E2E tests of the whole system
 ```
 - **All Source Code Under `src/`:** Every package, module, and app lives under `src/`. Only repository-wide configuration, `3rdparty/`, and `docs/` sit at the root.
 - **Modules Share Only Their Domain:** A module imports another module's `domain/` (entities, value objects, IDs, and events) and nothing else. Executables and deployables use a module only through its `services/`.
@@ -129,8 +130,9 @@ src/backend/executables/<name>/tests/<feature>_test.py       # component tests, 
 src/backend/executables/<name>/tests/framework/               # this executable's drivers, fixtures, and fakes
 src/backend/libs/testing/                                     # fakes and helpers shared by several executables
 src/frontend/tests/framework/                                 # the frontend's drivers, fakes, and test setup
-src/e2e/tests/<feature>.spec.ts                               # E2E tests
-src/e2e/framework/                                            # E2E drivers, fixtures, and fakes
+src/frontend/src/<file>.test.tsx                              # frontend unit test, next to its source
+src/tests/e2e/<feature>_test.py                               # E2E tests, named after the feature
+src/tests/e2e/framework/                                      # the running system and the E2E driver
 ```
 - Drivers, fixtures, and fakes live only in `framework/` folders or `src/backend/libs/testing/`, never in test files or product code.
 - Only test code may import `src/backend/libs/testing/`.
@@ -142,13 +144,28 @@ Every production change follows Red-Green-Refactor:
 3. **Refactor:** Clean up the code and the tests, keeping every test green.
 
 ### Test Levels
-- **Unit Tests:** Cover the domain code in `src/backend/modules/*/domain/`: entities, value objects, and domain services. Every source file in `domain/` has a test file next to it (`<entity>.py` → `<entity>_test.py`). Domain code does no I/O, so unit tests need no fakes.
-- **Component Tests:** Test one executable as a whole, through its contract: RPC calls for an RPC service, a published event for a domain-events listener, a queued task for a tasks consumer, a clock tick for a cron scheduler, and a conversation for an AI agent. Each test runs a complete flow the way a client uses the component: for an RPC service, create a record, list it, update it, and get it again. Services, repositories, and the database (an ephemeral Postgres) are real parts of the component and are never tested on their own; everything outside the executable is a fake.
-- **Frontend Tests:** Test the frontend as a whole, through what the user sees and does, with Vitest and Testing Library. The tests live in `src/frontend/tests/`, and the driver renders the real `App` with `FakeSignIn` in place of Firebase and `fakeBackend` in place of the backend. The Firebase adapter has its own tests next to it, against a fake of `firebase/auth`.
+Each behavior is tested at the lowest level that can catch its bug, and each level answers one question:
+
+| Level | Answers | Covers |
+|---|---|---|
+| Unit | Is this piece right? | Backend domain rules and their edge cases, and each frontend file on its own |
+| Component | Does this part keep its contract? | One backend executable, or the whole frontend, exhaustively |
+| E2E | Do the real parts work together? | Main journeys, and failures that need real processes |
+
+- **Backend Unit Tests:** Cover the domain code in `src/backend/modules/*/domain/`: entities, value objects, and domain services. Every source file in `domain/` has a test file next to it (`<entity>.py` → `<entity>_test.py`). Domain code does no I/O, so unit tests need no fakes.
+- **Frontend Unit Tests:** Every frontend file we write has a test file next to it (`app-header.tsx` → `app-header.test.tsx`): views, components, hooks, and helpers. The test renders just that file, or runs just that hook, with the shared fakes from `src/frontend/tests/framework/`, and covers every state the file can show. Generated shadcn files, `main.tsx`, files that hold only types, and pure data such as `i18n/resources.ts` have none.
+- **Backend Component Tests:** Test one executable as a whole, through its contract: RPC calls for an RPC service, a published event for a domain-events listener, a queued task for a tasks consumer, a clock tick for a cron scheduler, and a conversation for an AI agent. Each test runs a complete flow the way a client uses the component: for an RPC service, create a record, list it, update it, and get it again. Services, repositories, and the database (an ephemeral Postgres) are real parts of the component and are never tested on their own; everything outside the executable is a fake. A feature that spans executables runs them together in one test (`run_executables([...])`).
+- **Frontend Component Tests:** Test the frontend as a whole, through what the user sees and does, with Vitest and Testing Library. The tests live in `src/frontend/tests/`, and the driver renders the real `App` with `FakeSignIn` in place of Firebase and `fakeBackend` in place of the backend.
 - **Provider Repository Tests:** A repository that talks to a provider, such as `firebase_users.py`, is replaced by a fake in component tests, so it has its own tests next to it, against a local fake of the provider.
-- **End-to-End (E2E) Tests:** Test the whole system: the real deployables and the production frontend build, driven through the UI in a real browser with Playwright. E2E tests simulate complicated, realistic user journeys: long flows across several screens and features, done the way real users do them, including mistakes, corrections, and returning later to continue. Third parties are fakes.
-  - **API-Driven Before the UI Exists:** A feature whose UI does not exist yet runs its E2E tests through the ConnectRPC API, with the same rules. The feature that adds the UI adds the UI-driven tests.
+- **End-to-End (E2E) Tests:** Test the whole system with Playwright for Python: the backend deployable run as its own process on a fresh database, and the production frontend build in Google Chrome, with the backend's debug user signed in in place of Firebase (README, "How E2E Tests Work"). E2E tests simulate complicated, realistic user journeys: long flows across several screens and features, done the way real users do them, including mistakes, corrections, and returning later to continue. They cover:
+  - each feature's main journey;
+  - every failure that needs real processes, a real network, or a restart to happen, such as the backend restarting in the middle of a journey;
+  - every RPC the frontend calls, at least once through the UI.
+
+  Business-rule edge cases stay in unit and component tests.
+  - **API-Driven Before the UI Exists:** A feature whose UI does not exist yet runs its E2E tests through the ConnectRPC API, with the generated client and the same rules. The feature that adds the UI adds the UI-driven tests.
   - **Several Scenarios per Feature:** Each feature has several E2E tests, each a chain of steps: the main lifecycle, and one for each family of failures, such as one of our services failing or a third party answering wrongly.
+- **Blueprint Scenarios Name Their Level:** Each scenario in a feature's blueprint names the level that tests it.
 - **Agents in Tests:** Component and E2E tests run AI agents on Pydantic AI's `TestModel` or `FunctionModel`. Only evals call a real model, and they run outside the verification command.
 
 ### Coverage
@@ -196,6 +213,6 @@ Only the runtime creates infra, so tests swap every external dependency the same
 | Other RPC services | A fake implementation of the generated service, served by a local test server | The real deployable, or the same fake |
 | Third-party HTTP APIs | Recorded responses replayed with `pytest-recording`; `respx` for one-off stubs | A fake server per third party, serving committed fixtures |
 | LLM | `TestModel` or `FunctionModel`, injected | The test model, selected through an environment variable |
-| Firebase Auth | A fake token verifier, injected | The Firebase Auth emulator |
-| Time | The injected clock | The injected clock |
+| Firebase Auth | A fake token verifier, injected | The backend's debug user (`DEBUG=true`, `DEBUG_USER_JWT`), its token in the browser's localStorage |
+| Time | The injected clock | The real clock; time-driven behavior is tested in component tests |
 | Events and tasks | Real, on Postgres | Real, on Postgres |

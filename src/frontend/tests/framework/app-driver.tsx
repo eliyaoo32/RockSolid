@@ -53,7 +53,6 @@ export function renderApp({
         return click(t("signIn.google"))
       },
       signOut: () => click(t("signIn.signOut")),
-      toggleTheme: () => click(t("theme.toggle")),
     },
     get: {
       path: () => pathname,
@@ -65,8 +64,6 @@ export function renderApp({
       /** Waits for the header to show the user's name, as the backend knows them. */
       userName: async (account: Account) =>
         (await screen.findByText(USERS[account])).textContent,
-      theme: () =>
-        document.documentElement.classList.contains("dark") ? "dark" : "light",
     },
   }
 }

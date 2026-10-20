@@ -8,6 +8,7 @@ dist/
 # Node packages and their outputs
 node_modules/
 coverage/
+/src/tests/e2e/frontend-build/
 
 # Local environment; .env.example lists the variables
 .env

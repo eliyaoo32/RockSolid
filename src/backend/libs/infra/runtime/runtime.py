@@ -54,6 +54,11 @@ class InfraSettings(BaseSettings):
     database_url: str
     # The Firebase project whose ID tokens sign users in.
     firebase_project_id: str
+    # Never true in production. With `debug_user_jwt` set, only that token signs in, as one user
+    # named `debug_user_name`, so local runs and E2E tests need no real sign-in.
+    debug: bool = False
+    debug_user_jwt: str | None = None
+    debug_user_name: str = "Debug User"
     port: int = 8080
     # Proxies trusted to set X-Forwarded-For and X-Forwarded-Proto, such as a load balancer.
     forwarded_allow_ips: str = "127.0.0.1"
@@ -108,7 +113,11 @@ async def run(
     now = partial(datetime.now, UTC)
     infra = Infra(
         database=create_async_engine(settings.database_url, pool_pre_ping=True),
-        auth=create_auth(settings.firebase_project_id),
+        auth=create_auth(
+            settings.firebase_project_id,
+            debug_user_jwt=settings.debug_user_jwt if settings.debug else None,
+            debug_user_name=settings.debug_user_name,
+        ),
         now=now,
     )
     runtime = Runtime(

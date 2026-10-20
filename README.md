@@ -175,11 +175,33 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 
 ## Testing
 
-* **Three levels:** unit tests for domain code, component tests for one executable through its contract, and E2E tests for the whole system through the UI.
+* **Three levels, each at the lowest level that can catch the bug:** unit tests for domain rules and each frontend file, component tests for one executable or the whole frontend, and E2E tests for the real system: the backend deployable and the production frontend build in Chrome, run together by `pants test`.
 * **Tests read as scenarios.** Drivers hide how each step is done, so a test shows only what happens.
 * **Every external dependency is faked through injection**, using the same runtime as production. No test reaches a real third party.
 * **Always tested:** permissions, tenant isolation, full recovery from every failure, and crash recovery.
 * **100% coverage with genuine assertions**, so tests catch real regressions.
+
+### How E2E Tests Work
+
+E2E tests live in `src/tests/e2e/` and are Python tests with Playwright, run by `pants test` like every other test. `make e2e` runs only them, and `make verify` includes them.
+
+* **The real system, without Docker images:** each test gets an empty database on an ephemeral Postgres, and the backend deployable runs on it as its own process, the way production runs it: `migrate`, then `serve`.
+* **The production frontend build:** `make e2e-frontend` builds the frontend into the test's folder. The browser opens a made-up origin, `http://app.test`, and the test answers it: calls to the generated services go to the backend, and every other path gets the build, so the app and its backend share one origin as they do in production.
+* **Google Chrome as installed:** the tests use the Chrome already on the machine, so no browser is downloaded. GitHub's runners have it too.
+* **Signing in with a debug user, not with Google:** Firebase's Google sign-in window loads Google's scripts from the internet, and no test reaches a third party. Instead:
+  * the backend runs with `DEBUG=true`, `DEBUG_USER_JWT`, and `DEBUG_USER_NAME`. It then signs in only that token, as that one user, and `GetCurrentUser` returns them;
+  * every browser starts with that token in localStorage, under `rocksolid.debugUserJwt`, and a frontend that finds it signs in with it instead of Firebase;
+  * the Google sign-in itself is covered by the frontend's unit tests, against a fake of Firebase.
+
+  `DEBUG` is never true in production.
+* **Real time:** the backend keeps the real clock, so behavior that depends on time, such as cron jobs and retries, is tested in component tests with `FakeTime`.
+
+What an E2E test covers:
+
+* **Each feature's main journey,** across screens, the way a user does it, including reloads and coming back later.
+* **Failures that need real processes,** such as the backend restarting in the middle of a journey. Business-rule edge cases stay in unit and component tests.
+* **Every RPC the frontend calls,** at least once through the UI.
+* **Scenarios through a driver:** `driver.when.*` acts in the browser and `driver.get.*` returns what the user sees. Assertions use Playwright's `expect`, which waits for the page instead of sleeping.
 
 ## Tech Stack
 

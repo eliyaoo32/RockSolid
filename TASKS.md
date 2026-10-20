@@ -83,12 +83,12 @@
     - [ ] Replay recorded third-party HTTP responses
     - [ ] Build fake third-party servers for E2E
     - [x] Build a fake Firebase token verifier
-    - [ ] Run the Firebase Auth emulator in E2E
+    - [x] Sign E2E users in with the backend's debug user
     - [ ] Select the test LLM through an environment variable
     - [x] Add an injectable clock
     - [x] Add an eventually helper for async effects
     - [ ] Restrict src/backend/libs/testing to test code
-    - [ ] Set up the E2E package with Playwright
+    - [x] Set up the E2E package with Playwright
 
 - [ ] Contacts example
     - [x] Build Clients CRUD across all tiers

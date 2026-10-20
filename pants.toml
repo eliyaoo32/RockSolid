@@ -9,11 +9,14 @@ backend_packages = [
   "pants.backend.docker",
   "pants.backend.experimental.visibility",
 ]
+# The frontend build for E2E tests is not committed, yet the tests depend on it.
+pants_ignore.add = ["!/src/tests/e2e/frontend-build/"]
 
 [source]
 # Imports start at src/backend/ (`modules.clients.domain.client`). Generated Python is its own
-# root, so it imports by proto package (`clients.v1`).
-root_patterns = ["/src/backend", "/src/generated/python"]
+# root, so it imports by proto package (`clients.v1`), and so are the tests across the system
+# (`e2e.framework.system`).
+root_patterns = ["/src/backend", "/src/generated/python", "/src/tests"]
 
 [python]
 interpreter_constraints = ["CPython==3.14.*"]
