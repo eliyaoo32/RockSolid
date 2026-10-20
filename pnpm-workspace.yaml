@@ -1,6 +1,6 @@
 packages:
-  - src/frontend
-  - src/wireframe
+  - src/clients/web-app
+  - src/clients/wireframe
   - src/generated/typescript
 
 allowBuilds:

@@ -11,9 +11,12 @@ verify: contracts generated web e2e-frontend
 e2e: e2e-frontend
 	pants test src/tests/e2e::
 
-# Builds the production frontend where the E2E tests serve it from.
+# Builds the production frontend where the E2E tests serve it from, with a made-up Firebase web
+# config that matches theirs (`src/tests/e2e/framework/system.py`).
 e2e-frontend:
-	pnpm --filter @rocksolid/frontend exec vite build --outDir ../tests/e2e/frontend-build --emptyOutDir
+	FIREBASE_API_KEY=e2e-api-key FIREBASE_AUTH_DOMAIN=app.test FIREBASE_PROJECT_ID=rocksolid-e2e \
+	FIREBASE_APP_ID=e2e-app \
+	pnpm --filter @rocksolid/web-app exec vite build --outDir ../../tests/e2e/frontend-build --emptyOutDir
 
 # Lints, typechecks, tests, and builds the TypeScript packages: the wireframe and the frontend.
 web:

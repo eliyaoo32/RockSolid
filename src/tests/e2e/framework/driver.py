@@ -23,10 +23,6 @@ class _When:
     def reload(self) -> None:
         self._page.reload()
 
-    def sign_in_with_google(self) -> None:
-        """Signs in again; with the debug user's token, the app signs in without Google."""
-        self._page.get_by_role("button", name="Sign in with Google").click()
-
     def sign_out(self) -> None:
         self._page.get_by_role("button", name="Sign out").click()
 

@@ -8,7 +8,7 @@ export class FakeSignIn implements SignIn {
   googleAccount: Account = "dana"
   private readonly listeners = new Set<(signedIn: boolean) => void>()
   private refuseNextSignIn = false
-  private googleWindow = Promise.resolve()
+  private pendingSignIn = Promise.resolve()
   /** Undefined until `report` says whether someone is signed in. */
   private signedInAs: Account | null | undefined
 
@@ -37,10 +37,10 @@ export class FakeSignIn implements SignIn {
     this.refuseNextSignIn = true
   }
 
-  /** Keeps the next Google window open until the returned function finishes the sign-in. */
-  holdGoogleWindow(): () => void {
+  /** Keeps the next sign-in pending until the returned function finishes it. */
+  holdNextSignIn(): () => void {
     let finish!: () => void
-    this.googleWindow = new Promise<void>((resolve) => {
+    this.pendingSignIn = new Promise<void>((resolve) => {
       finish = resolve
     })
     return finish
@@ -51,7 +51,7 @@ export class FakeSignIn implements SignIn {
       this.refuseNextSignIn = false
       throw new Error("Google refused the sign-in")
     }
-    await this.googleWindow
+    await this.pendingSignIn
     this.report(this.googleAccount)
   }
 

@@ -22,14 +22,14 @@ describe("sign-in view", () => {
     expect(googleButton()).toBeEnabled()
   })
 
-  it("disables the button while the Google window is open", async () => {
+  it("disables the button while the sign-in is in progress", async () => {
     const { signIn } = renderInApp(<SignInView />, { signedInAs: null })
-    const closeGoogleWindow = signIn.holdGoogleWindow()
+    const finishSignIn = signIn.holdNextSignIn()
 
     await userEvent.click(googleButton())
     expect(googleButton()).toBeDisabled()
 
-    closeGoogleWindow()
+    finishSignIn()
     await expect.poll(() => googleButton().hasAttribute("disabled")).toBe(false)
   })
 
