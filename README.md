@@ -148,18 +148,29 @@ A deployable is a list of the executable classes it runs, in one process. The ru
 * Holds the technical capabilities that belong to no business module, such as the database pool and the domain-events bus.
 * It is organized by capability: `src/backend/libs/infra/<capability>/`, such as `db/` and `events/`. Each capability folder holds its interface, its provider implementations, and its transport hooks, such as interceptors.
 * A capability with business meaning is a module, not a lib. Signing users in belongs to the users module.
-* The runtime builds the users module's sign-in service, because every API and agent needs the caller, and the conversations module's service, because every agent keeps its conversations. It is the only lib that uses modules.
+* The runtime builds the users module's sign-in service, because every API and agent needs the caller, and keeps each agent's conversations in the conversations module. It is the only lib that uses modules.
 
 ### AI Agents
 
-Agents are plain Pydantic AI agents. An agent executable's `agent()` returns the agent, with its model, instructions, and tools; the runtime serves it.
+Agents are plain Pydantic AI agents. An agent executable's `agent()` returns the agent, with its model, instructions, and tools; `AgentExecutable` serves it.
+
+**One message, from request to database.** Three layers, each with one job:
+
+1. **`AgentExecutable`** (`libs/infra/runtime/executables.py`) takes the AG-UI request. It signs the caller in, asks the conversations service to add the user's message, runs the agent with Pydantic AI's AG-UI adapter on the whole conversation, and asks the service to add the agent's answer. The few things it adds to Pydantic AI's adapter are in `libs/infra/agents/ag_ui.py`.
+2. **`ConversationService`** (`modules/conversations/services/`) has three calls: `receive_message`, `append_messages`, and `stop`. Each loads the conversation, changes it, and saves it in one transaction, through the repository.
+3. **The `Conversation` entity** (`modules/conversations/domain/`) holds the rules. It keeps every message, and works out from them whether the agent is answering:
+   * `is_answered`: the newest message is the agent's full answer;
+   * `is_timed_out`: the run started 10 minutes ago or more;
+   * `is_running`: a run started, and it has not answered, been stopped, or timed out.
+
+   `append_message` refuses the user's next message while the agent is running, and `stop` ends a run that has no answer.
 
 * **Over AG-UI:** each agent answers at `/agents/<name>`. One request carries one message and streams the answer back as AG-UI events.
 * **Signing in:** an agent with `require_auth` refuses a caller who is not signed in, with `401`; any other agent also talks to anonymous callers. An invalid token is always refused. The check is the same sign-in the RPC API uses.
 * **Acting as the user:** every run gets the caller in its deps. Tools act through module services with that caller, so an agent can do only what its user can.
 * **Conversations live on the server**, in the conversations module, one per agent, caller, and AG-UI thread. A conversation holds every message as Pydantic AI's own messages. A client resends its whole thread with every message, as AG-UI clients do, and the runtime reads only the newest message: the agent runs on the conversation the server keeps, so a client cannot rewrite what the agent was told. Another caller's thread with the same ID is another conversation. An anonymous caller's thread ID is the only key to their conversation.
 * **One message at a time:** the user's message starts the agent's run. While it runs, the next message is refused with `409`, which the AG-UI client reports as an error.
-* **Stopped, failed, and crashed runs keep the user's message:** a run ends when the agent answers, fails, or is stopped by the client closing its request, as an AG-UI stop button does. The user's message stays, and their next message goes on top of it. Every run is stopped after 10 minutes, so after a crash the user can send their next message once that time has passed. A failed run ends with an AG-UI `RUN_ERROR` that says only that the agent could not answer; the failure itself is logged, never sent to the client.
+* **Stopped, failed, and crashed runs keep the user's message:** the agent's full answer ends a run. A run that fails, or that the client stops by closing its request, as an AG-UI stop button does, is stopped without one. The user's message stays, and their next message goes on top of it. Every run is cut off after 10 minutes, so after a crash the user can send their next message once that time has passed. A failed run ends with an AG-UI `RUN_ERROR` that says only that the agent could not answer; the failure itself is logged, never sent to the client.
 * **Pydantic AI's own features go on the agent:** compaction, trimming long histories, and other capabilities are set in `agent()`, with `capabilities=[...]`.
 * **Models:** each agent executable names its own model, through `infra.models`, such as `infra.models.ollama("deepseek-v4.1-flash:cloud")`. The deployable's settings say where each provider runs and its API key, and an agent whose provider has no API key stops the deployable from starting.
 * **Limits:** each run is bounded in model requests and tool calls, so a model cannot loop, or cost, without end.

@@ -281,7 +281,7 @@ class Runtime:
                 agent.name,
                 port,
             )
-            application = agent.endpoint.agent.to_web(
+            application = agent.served_agent.to_web(
                 deps=AgentDeps(debug_user.id), html_source=chat.html_source
             )
             servers[agent.name] = uvicorn.Server(

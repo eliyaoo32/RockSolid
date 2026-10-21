@@ -275,7 +275,7 @@ async def test_stopping_a_run_keeps_the_users_message_and_takes_the_next_one(
 
     await eventually(answered)
     assert agents.model.prompts() == ["hold", "still there?"], "the stopped run kept the message"
-    assert "ended in thread" in caplog.text and "without an answer" in caplog.text
+    assert "stopped in thread" in caplog.text and "without an answer" in caplog.text
 
 
 @pytest.mark.parametrize(("agent", "message"), [("greeter", "boom"), ("hasty_greeter", "who am i")])
@@ -311,7 +311,7 @@ async def test_takes_the_next_message_once_a_crashed_run_outlives_its_time(
 
 # Requests the agent refuses before running, and the code of each refusal.
 REFUSED: list[tuple[dict[str, Any], str]] = [
-    ({"threadId": "thread-1"}, "invalid_thread"),
+    ({"threadId": "thread-1"}, "unsupported_request"),
     ({"messages": [assistant_message("hi")]}, "unsupported_request"),
     (
         {"tools": [{"name": "rm", "description": "Removes files", "parameters": {}}]},

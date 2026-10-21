@@ -6,10 +6,12 @@ import logging
 from collections.abc import AsyncIterator
 from functools import cached_property
 from typing import Any
+from uuid import UUID
 
 from ag_ui.core import BaseEvent
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai.ui.ag_ui import AGUIAdapter, AGUIEventStream
+from starlette.responses import JSONResponse
 
 from libs.infra.agents.deps import AgentDeps
 
@@ -57,8 +59,17 @@ def newest_message(adapter: AGUIAdapter[AgentDeps, str]) -> ModelMessage:
     return message
 
 
+def thread_id_of(adapter: AGUIAdapter[AgentDeps, str]) -> UUID:
+    """The conversation's thread, which `unsupported` checked is a UUID."""
+    return UUID(adapter.run_input.thread_id)
+
+
 def unsupported(adapter: AGUIAdapter[AgentDeps, str]) -> str | None:
     """Why agents cannot run this request, or None when they can."""
+    try:
+        UUID(adapter.run_input.thread_id)
+    except ValueError:
+        return "threadId must be a UUID."
     messages = adapter.run_input.messages
     if not messages or messages[-1].role != "user":
         return "The newest message must be the user's."
@@ -67,3 +78,10 @@ def unsupported(adapter: AGUIAdapter[AgentDeps, str]) -> str | None:
     if adapter.run_input.resume:
         return "Agents ask for no approvals, so there is nothing to resume."
     return None
+
+
+def refusal(status: int, code: str, message: str) -> JSONResponse:
+    """Refuses a request before any run starts, as the AG-UI client reads it: an HTTP error
+    with a JSON body."""
+    headers = {"www-authenticate": "Bearer"} if status == 401 else None
+    return JSONResponse({"code": code, "message": message}, status_code=status, headers=headers)
