@@ -21,7 +21,7 @@ from playwright.sync_api import BrowserContext, Route
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from e2e.framework.fake_ollama import API_KEY, FakeOllama, running_fake_ollama
+from e2e.framework.fakes.ollama import API_KEY, FakeOllama, running_fake_ollama
 from libs.infra.runtime.executables import Executable
 from libs.testing.deployables import every_deployable, http_routes
 from libs.testing.time import eventually

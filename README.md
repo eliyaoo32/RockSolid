@@ -211,7 +211,8 @@ E2E tests live in `src/tests/e2e/` and are Python tests with Playwright, run by 
   * the Google sign-in button itself is covered by the frontend's unit tests, against a fake of Firebase. E2E tests never click it.
 
   `DEBUG` is never true in production.
-* **Agents answer from a fake Ollama:** the backend's `OLLAMA_BASE_URL` points at a local server that streams a committed answer to every request and records what it was asked, so a test can check what the model was told, such as a conversation's history after a restart.
+* **Fakes of third parties:** each is a local server in `src/tests/e2e/framework/fakes/`, one file named after the third party, with its committed responses in `fakes/testdata/`.
+* **Agents answer from a fake Ollama** (`fakes/ollama.py`): the backend's `OLLAMA_BASE_URL` points at a local server that streams a committed answer to every request and records what it was asked, so a test can check what the model was told, such as a conversation's history after a restart.
 * **Real time:** the backend keeps the real clock, so behavior that depends on time, such as cron jobs and retries, is tested in component tests with `FakeTime`.
 
 What an E2E test covers:

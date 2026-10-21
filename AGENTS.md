@@ -78,8 +78,11 @@ src/tests/e2e/                         # E2E tests of the whole system
 - **Tasks:** A task is a frozen Pydantic model in the module's `domain/` that asks for work, with a class-level `task_type` of the form `"<module>.<TaskClassName>"`. Name it in the imperative, after the work it asks for. The queue stores `task_type`, so it never changes; fields are only added, with defaults, so tasks already in the queue still load.
 - **Recurring Tasks:** Work that recurs, such as every two hours, is a cron job that queues a task.
 - **Consuming:** A consumer executable subclasses `TasksConsumerExecutable` and returns `TaskHandler(task_class, handler)` from `handlers()`. Each task type has exactly one handler across all deployables. A handler may run a task more than once, so it must be safe to run again. A handler's `retry` strategy and `NonRetryableError` work as they do for subscriptions, and a task that stops retrying is parked.
-- **Agents:** An agent executable subclasses `AgentExecutable`, sets `name` and `require_auth`, and returns its Pydantic AI `Agent[AgentDeps, str]` from `agent()`: its model from `self.infra.models`, named by a constant in the executable, its instructions, and its tools. The name keeps the agent's conversations, so it stays the same across releases.
-- **Tools Act as the Caller:** A tool gets the user only from `ctx.deps.signed_in_user_id()` and calls module services with it. It never takes a user ID as a parameter, so neither the model nor a prompt can act for another user. A tool turns a mistake the model can fix, such as an invalid filter, into `ModelRetry` with what is wrong.
+- **Agent Executables:** An AI agent is a class that subclasses `AgentExecutable` and has three things:
+  - `name`: the agent answers at `/agents/<name>`, and its users' conversations are stored under this name. Never rename it, or its users lose their conversations.
+  - `require_auth`: `True` when only signed-in users may talk to the agent.
+  - `agent()`: a method that builds and returns the Pydantic AI `Agent`, with its instructions and tools. It picks its model with `self.infra.models`, such as `self.infra.models.ollama(MODEL)`, where `MODEL` is a constant at the top of the file.
+- **Agent Tools Act as the User:** A tool gets the signed-in user's ID from `ctx.deps.signed_in_user_id()` and passes it to module services, the same way an RPC handler does. A tool never has a user ID parameter: the model fills in tool parameters, so such a parameter would let the model, or a message a user typed, act as someone else. When the model sent a value it can fix, such as an invalid filter, the tool raises `ModelRetry` with a message saying what is wrong, and the model tries again.
 - **Debug Mode Is One List:** Every effect of `DEBUG=true` is listed in the README's "Debug Mode" section and in `.env.example`. A change that adds an effect adds it to both.
 - **A Deployable Is a List:** A deployable's `main.py` lists its executable classes and hands them to the runtime's `run`. It builds nothing itself.
 - **Logging:** Write logs with Python's `logging` module (`logger = logging.getLogger(__name__)`), never with `print`. The runtime turns every log line into JSON on stdout and adds the ID of the request it belongs to, so all the logs of one request can be found together.
@@ -136,8 +139,10 @@ src/clients/web-app/tests/framework/                                 # the front
 src/clients/web-app/src/<file>.test.tsx                              # frontend unit test, next to its source
 src/tests/e2e/<feature>_test.py                               # E2E tests, named after the feature
 src/tests/e2e/framework/                                      # the running system and the E2E driver
+src/tests/e2e/framework/fakes/<third_party>.py                # a fake server for each third party
 ```
 - Drivers, fixtures, and fakes live only in `framework/` folders or `src/backend/libs/testing/`, never in test files or product code.
+- An E2E fake of a third party is a server in `src/tests/e2e/framework/fakes/`, one file named after the third party (`fakes/ollama.py`), with its committed responses in `fakes/testdata/`.
 - Only test code may import `src/backend/libs/testing/`.
 
 ### Test-Driven Development
