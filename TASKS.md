@@ -4,7 +4,7 @@
 
 - [ ] Repository foundation
     - [x] Create modules, libs, executables, deployables folders
-    - [ ] Run local Postgres with Docker Compose
+    - [x] Run local Postgres with Docker Compose
 
 - [ ] Pants setup
     - [x] Enable Pants Python, Ruff, and Pyright backends

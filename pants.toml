@@ -11,6 +11,8 @@ backend_packages = [
 ]
 # The frontend build for E2E tests is not committed, yet the tests depend on it.
 pants_ignore.add = ["!/src/tests/e2e/frontend-build/"]
+# `make dev` keeps one Pants running to restart the backend; other Pants commands still run.
+concurrent = true
 
 [source]
 # Imports start at src/backend/ (`modules.clients.domain.client`). Generated Python is its own

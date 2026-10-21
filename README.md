@@ -204,6 +204,35 @@ What an E2E test covers:
 * **Every RPC the frontend calls,** at least once through the UI.
 * **Scenarios through a driver:** `driver.when.*` acts in the browser and `driver.get.*` returns what the user sees. Assertions use Playwright's `expect`, which waits for the page instead of sleeping.
 
+## Local Development
+
+`make dev` runs the whole system on your machine, with Docker, Pants, and pnpm installed:
+
+1. Starts Postgres from `compose.yaml` in Docker and waits until it is ready. Its data survives restarts.
+2. Runs the backend's `migrate`.
+3. Runs the backend, which restarts when its code changes, on `http://localhost:8080`.
+4. Runs the frontend's Vite dev server, which updates the page as its code changes and sends calls to the generated services to the backend.
+
+Ctrl+C stops both servers; Postgres keeps running until `docker compose down`.
+
+* **One settings file, committed:** `.env.development` holds the dev settings, and none is a secret. Vite reads it for the dev server, and never for a build. `make dev` passes the same file to the backend as environment variables.
+* **A dev Firebase project:** local sign-in is real Google sign-in, through a Firebase project of its own, never production's. Its public web config fills the `FIREBASE_*` values in `.env.development`. Firebase allows `localhost` by default.
+* **Other Pants commands keep working:** Pants runs concurrently (`concurrent = true` in `pants.toml`), so `pants test` and `make verify` run while `make dev` does.
+
+### Test, Dev, and Prod
+
+| | Component tests | E2E tests | Dev (`make dev`) | Prod |
+|---|---|---|---|---|
+| **Postgres** | A throwaway container (testcontainers); each test starts from empty tables | A throwaway container; each test gets a new, empty database | Docker Compose, with a volume that survives restarts | Managed Postgres (not set up yet) |
+| **Migrations** | The test runtime migrates the executable's schemas | `migrate` before each test's deployables start | `migrate` on every `make dev`, then `serve` | `migrate` once per release, then `serve` on every replica |
+| **Backend** | The executables, in the test's process (`run_executables`) | Every deployable, each as its own process | `pants --loop run`, restarting on code changes | The PEX in the deployable's Docker image |
+| **Frontend** | The real `App` in jsdom | The production build in Chrome, at `http://app.test` | The Vite dev server | The production build (hosting not set up yet) |
+| **Sign-in** | A fake token verifier | The backend's debug user (`DEBUG=true`) | The dev Firebase project | The production Firebase project |
+| **`DEBUG`** | Not used | `true` | `false` | Never `true` |
+| **Settings** | Set by the test | Set by the test, with a made-up Firebase web config in the build | `.env.development` | Environment variables where it runs, and in the frontend's build |
+| **Clock** | `FakeTime`, moved by the test | Real | Real | Real |
+| **Third parties and LLMs** | Recorded responses, fakes, `TestModel` | Fake servers, the test model | Real, with dev accounts | Real |
+
 ## Tech Stack
 
 * Pantsbuild - build system that analyzes fine-grained code dependencies to execute caching, linting, testing, and packaging hermetically at scale (Better than Bazel).
