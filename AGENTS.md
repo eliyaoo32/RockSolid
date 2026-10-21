@@ -53,6 +53,7 @@ src/tests/e2e/                         # E2E tests of the whole system
 
 ### Dependencies
 - **Through Pants Only:** Add the requirement to `3rdparty/python/requirements.txt`, then run `pants generate-lockfiles`. Pants infers which code uses it. Never install with `pip` or `uv`; Pants does not read their environments or lockfiles.
+- **Our Packages Are Listed for Ruff:** `known-first-party` in `pyproject.toml` lists every top-level Python package of our own: each folder in `src/backend/` and `src/tests/`, and each module generated into `src/generated/python/`. Pants lints a few files at a time, so Ruff cannot find our packages on disk and sorts an unlisted one as third-party. A change that adds such a folder or a contract module (`src/protos/<module>/`) adds its name to the list.
 
 ### Domain and Persistence
 - **Pydantic Domain Models:** Entities, aggregates, and value objects are Pydantic models. Value objects are frozen (`frozen=True`). Entities validate every change (`validate_assignment=True`), so an entity is never invalid.
