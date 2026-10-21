@@ -10,5 +10,8 @@ node_modules/
 coverage/
 /src/tests/e2e/frontend-build/
 
-# Local environment; .env.example lists the variables
+# Local settings; the dev settings are committed in .env.development
 .env
+
+# Taste Skill writes its browser screenshots and downloaded images here
+/.taste-skill/

@@ -1,6 +1,6 @@
 import type { FirebaseOptions } from "firebase/app"
 
-/** The only place the frontend reads its environment: the root `.env`, through Vite. */
+/** The only place the frontend reads its environment: the `FIREBASE_*` variables Vite provides. */
 export function readFirebaseOptions(env: ImportMetaEnv): FirebaseOptions {
   const missing = (
     [
@@ -11,7 +11,9 @@ export function readFirebaseOptions(env: ImportMetaEnv): FirebaseOptions {
     ] as const
   ).filter((name) => !env[name])
   if (missing.length > 0) {
-    throw new Error(`The root .env is missing ${missing.join(", ")}`)
+    throw new Error(
+      `The Firebase web settings are missing ${missing.join(", ")}`
+    )
   }
   return {
     apiKey: env.FIREBASE_API_KEY,

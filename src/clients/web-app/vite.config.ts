@@ -12,7 +12,7 @@ export default defineConfig({
       "@": resolve(import.meta.dirname, "./src"),
     },
   },
-  // The Firebase settings live in the root .env, shared with the backend.
+  // The dev server reads the root .env.development, which `make dev` also passes to the backend.
   // Only FIREBASE_* variables reach the browser bundle, so they hold only the public web config.
   envDir: resolve(import.meta.dirname, "../../.."),
   envPrefix: "FIREBASE_",

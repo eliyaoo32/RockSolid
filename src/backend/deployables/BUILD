@@ -22,4 +22,5 @@ __dependencies_rules__(
 )
 
 # Every deployable's entry point, owned here so the checks across deployables load them all.
-python_sources(name="entry_points", sources=["*/main.py"])
+# `make dev` runs one with `pants --loop run`, which restarts it when its code changes.
+python_sources(name="entry_points", sources=["*/main.py"], restartable=True)

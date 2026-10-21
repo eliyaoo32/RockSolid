@@ -4,7 +4,7 @@
 
 - [ ] Repository foundation
     - [x] Create modules, libs, executables, deployables folders
-    - [ ] Run local Postgres with Docker Compose
+    - [x] Run local Postgres with Docker Compose
 
 - [ ] Pants setup
     - [x] Enable Pants Python, Ruff, and Pyright backends
@@ -106,6 +106,9 @@
     - [x] Install the shadcn skill
     - [x] Install the ui-ux-pro-max skill
     - [x] Install the caveman skill
+    - [x] Install Emil Kowalski's skills
+    - [x] Install the Taste Skill
+    - [ ] Write guidelines in AGENTS.md for when to use each skill
     - [ ] Find a skill for Domain Driven Design.
 
 - [ ] Project template

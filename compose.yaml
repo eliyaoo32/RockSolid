@@ -1,0 +1,18 @@
+# The Postgres that `make dev` runs on. Its data survives restarts; tests start their own.
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: rocksolid
+      POSTGRES_PASSWORD: rocksolid
+      POSTGRES_DB: rocksolid
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD", "pg_isready", "--username=rocksolid"]
+      interval: 1s
+
+volumes:
+  postgres:
