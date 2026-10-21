@@ -104,6 +104,13 @@
     - [x] Install the shadcn skill
     - [x] Install the ui-ux-pro-max skill
     - [x] Install the caveman skill
+    - [x] Install Emil Kowalski's design and animation skills (emilkowalski/skills)
+    - [x] Install the Taste Skill (design-taste-frontend, from Leonxlnx/taste-skill)
+    - [ ] Write guidelines in AGENTS.md for when to use each skill
+        - Cover every skill in .agents/skills: ours (api-design, filtering), shadcn, ui-ux-pro-max, caveman, Emil Kowalski's (emil-design-eng, animate, animate-expo, review-animations, improve-animations, find-animation-opportunities, animation-performance, animation-vocabulary, apple-design, write-swift, pick-ui-library, prototype, mobile-native, break-ui, ask-sonner), and design-taste-frontend
+        - Say which skill leads where they overlap: ui-ux-pro-max, emil-design-eng, and design-taste-frontend all guide UI design
+        - Say which skills do not apply here, such as write-swift, apple-design, animate-expo, and mobile-native while the product has only a web app
+        - Follow "Where Guidelines Live" in the README: a skill already declares when it is used, so AGENTS.md states only the project's choices
     - [ ] Find a skill for Domain Driven Design.
 
 - [ ] Project template
