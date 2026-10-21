@@ -114,7 +114,7 @@ Every executable is one of these five types:
 | **Cron Scheduler** | Runs jobs at fixed times or intervals. |
 | **Tasks Consumer** | Runs commands from a queue: work a module asks to have done. Each task type has one handler across all deployables, and each task runs until it succeeds, with retries. |
 | **Domain-Events Listener** | Reacts to domain events: facts that already happened in some domain. An event can have any number of listeners, and the publisher does not know them. |
-| **AI Agent** | Serves a Pydantic AI agent that users talk to, over AG-UI, and keeps each conversation on the server. |
+| **AI Agent** | Runs a Pydantic AI agent that users talk to. |
 
 An executable is a class. The runtime knows two kinds:
 
@@ -134,7 +134,6 @@ A deployable is a list of the executable classes it runs, in one process. The ru
 * **Cron jobs:** the runtime hands every cron job to its cron runner, which decides how jobs are triggered. The first runner runs them inside the process; another runner, such as a hosted scheduler, can replace it without changing the executables.
 * **Domain events:** a module publishes an event in the same transaction as the change it describes, into one event log in Postgres. The runtime delivers every listener executable's subscriptions from that log: each subscription has its own cursor, receives its event type in order, at least once, and is retried as the subscription's retry strategy says when its handler fails, until the event is parked. Only one running copy of a deployable delivers each subscription. Another bus, such as a hosted broker, can replace the Postgres one without changing listeners.
 * **Tasks:** a module queues a task in the same transaction as the change that asks for it, into one queue in Postgres. The runtime runs every consumer executable's handlers from that queue: each task runs at least once, by the one handler of its type, and is retried as the handler's retry strategy says when it fails, until the task is parked. A task stays locked while it runs, so when a process crashes, its task returns to the queue. Work that recurs, such as every two hours, is a cron job that queues a task. Another queue, such as a hosted broker, can replace the Postgres one without changing consumers.
-* **Agents:** the runtime serves every agent executable over AG-UI at `/agents/<name>`, signs the caller in, and keeps the conversation (see AI Agents).
 * **Graceful shutdown:** on SIGTERM, it stops taking new work, lets running work finish, and closes the pools.
 
 ### Dependency Injection
@@ -152,39 +151,21 @@ A deployable is a list of the executable classes it runs, in one process. The ru
 
 ### AI Agents
 
-Agents are plain Pydantic AI agents. An agent executable's `agent()` returns the agent, with its model, instructions, and tools; `AgentExecutable` serves it.
+Agents are plain Pydantic AI agents. An agent executable returns its agent from `agent()`, and `AgentExecutable` serves it over AG-UI at `/agents/<name>`.
 
-**One message, from request to database.** Three layers, each with one job:
-
-1. **`AgentExecutable`** (`libs/infra/runtime/executables.py`) takes the AG-UI request. It signs the caller in, asks the conversations service to add the user's message, runs the agent with Pydantic AI's AG-UI adapter on the whole conversation, and asks the service to add the agent's answer. The few things it adds to Pydantic AI's adapter are in `libs/infra/agents/ag_ui.py`.
-2. **`ConversationService`** (`modules/conversations/services/`) has three calls: `receive_message`, `append_messages`, and `stop`. Each loads the conversation, changes it, and saves it in one transaction, through the repository.
-3. **The `Conversation` entity** (`modules/conversations/domain/`) holds the rules. It keeps every message, and works out from them whether the agent is answering:
-   * `is_answered`: the newest message is the agent's full answer;
-   * `is_timed_out`: the run started 10 minutes ago or more;
-   * `is_running`: a run started, and it has not answered, been stopped, or timed out.
-
-   `append_message` refuses the user's next message while the agent is running, and `stop` ends a run that has no answer.
-
-* **Over AG-UI:** each agent answers at `/agents/<name>`. One request carries one message and streams the answer back as AG-UI events.
-* **Signing in:** an agent with `require_auth` refuses a caller who is not signed in, with `401`; any other agent also talks to anonymous callers. An invalid token is always refused. The check is the same sign-in the RPC API uses.
-* **Acting as the user:** every run gets the caller in its deps. Tools act through module services with that caller, so an agent can do only what its user can.
-* **Conversations live on the server**, in the conversations module, one per agent, caller, and AG-UI thread. A conversation holds every message as Pydantic AI's own messages. A client resends its whole thread with every message, as AG-UI clients do, and the runtime reads only the newest message: the agent runs on the conversation the server keeps, so a client cannot rewrite what the agent was told. Another caller's thread with the same ID is another conversation. An anonymous caller's thread ID is the only key to their conversation.
-* **One message at a time:** the user's message starts the agent's run. While it runs, the next message is refused with `409`, which the AG-UI client reports as an error.
-* **Stopped, failed, and crashed runs keep the user's message:** the agent's full answer ends a run. A run that fails, or that the client stops by closing its request, as an AG-UI stop button does, is stopped without one. The user's message stays, and their next message goes on top of it. Every run is cut off after 10 minutes, so after a crash the user can send their next message once that time has passed. A failed run ends with an AG-UI `RUN_ERROR` that says only that the agent could not answer; the failure itself is logged, never sent to the client.
-* **Pydantic AI's own features go on the agent:** compaction, trimming long histories, and other capabilities are set in `agent()`, with `capabilities=[...]`.
-* **Models:** each agent executable names its own model, through `infra.models`, such as `infra.models.ollama("deepseek-v4.1-flash:cloud")`. The deployable's settings say where each provider runs and its API key, and an agent whose provider has no API key stops the deployable from starting.
-* **Limits:** each run is bounded in model requests and tool calls, so a model cannot loop, or cost, without end.
+* **Signed in like the API:** agents use the same sign-in as the RPC services, and `require_auth` decides whether anonymous callers may talk to an agent.
+* **Acts as its user:** tools call module services with the caller, so an agent can do only what its user can.
+* **Conversations live on the server:** each request carries only the user's newest message, and the agent runs on the conversation the server keeps, so a client cannot rewrite it.
+* **One message at a time:** while the agent answers, the next message is refused. A failed, stopped, or crashed run keeps the user's message, and every run is cut off after 10 minutes.
+* **Each agent picks its model** through `infra.models`. A provider without an API key stops the deployable from starting.
+* **Pydantic AI does the rest:** compaction, history trimming, and other capabilities are set on the agent.
 
 ### Debug Mode
 
-`DEBUG=true` is for local runs and E2E tests, never production. It changes exactly these, and nothing else:
+`DEBUG=true` is for local runs and E2E tests, never production. With `DEBUG_USER_JWT` set, it changes exactly two things:
 
-* **The debug user:** with `DEBUG_USER_JWT` set, only that token signs in, as one user named `DEBUG_USER_NAME`, and Firebase signs in nobody.
-* **Each agent's web chat:** with `DEBUG_USER_JWT` set, each agent also gets [Pydantic AI's web chat](https://pydantic.dev/docs/ai/guides/web/), on `127.0.0.1` from `DEBUG_CHAT_PORT` (default 8100) up, one port per agent in the deployable's order. The chat:
-  * signs in as the debug user, so anyone who can reach the port talks as them;
-  * answers on this machine only, and refuses any other host;
-  * keeps its conversation in the browser, not on the server;
-  * loads its page from the jsDelivr CDN, and caches it in `~/.cache/pydantic-ai/web-ui`.
+* **The debug user:** only that token signs in, as one user named `DEBUG_USER_NAME`.
+* **A web chat for each agent:** [Pydantic AI's web chat](https://pydantic.dev/docs/ai/guides/web/), on this machine only, from `DEBUG_CHAT_PORT` up, signed in as the debug user. It keeps its history in the browser and loads its page from a CDN.
 
 ### API Design
 
@@ -223,8 +204,7 @@ E2E tests live in `src/tests/e2e/` and are Python tests with Playwright, run by 
   * the Google sign-in button itself is covered by the frontend's unit tests, against a fake of Firebase. E2E tests never click it.
 
   `DEBUG` is never true in production.
-* **Fakes of third parties:** each is a local server in `src/tests/e2e/framework/fakes/`, one file named after the third party, with its committed responses in `fakes/testdata/`.
-* **Agents answer from a fake Ollama** (`fakes/ollama.py`): the backend's `OLLAMA_BASE_URL` points at a local server that streams a committed answer to every request and records what it was asked, so a test can check what the model was told, such as a conversation's history after a restart.
+* **Fakes of third parties:** each is a local server in `src/tests/e2e/framework/fakes/`, one per third party, serving committed responses. Agents answer from a fake Ollama, which also records what the model was told.
 * **Real time:** the backend keeps the real clock, so behavior that depends on time, such as cron jobs and retries, is tested in component tests with `FakeTime`.
 
 What an E2E test covers:
