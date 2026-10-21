@@ -301,7 +301,7 @@ The boilerplate will include the following skills:
 
 * [Taste Skill](https://www.tasteskill.dev/docs) - Frontend design that doesn't look generic.
 
-Add a skill with `pnpm dlx skills@latest add <repo> -a pi -a antigravity -y`. Claude Code reads the same folder through `.claude/skills`.
+Add a skill with `pnpm dlx skills@latest add <repo> -a pi -a antigravity -y`. It lands in `.agents/skills/`, which Claude Code also reads through `.claude/skills`.
 
 ### Harness Consistency Check
 
