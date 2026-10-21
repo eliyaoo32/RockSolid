@@ -3,7 +3,7 @@
 [tool.ruff]
 line-length = 100
 # Where our own code lives, so imports from it are grouped as first-party.
-src = ["src/backend", "src/generated/python"]
+src = ["src/backend", "src/generated/python", "src/tests"]
 target-version = "py314"
 # Generated code is regenerated, never formatted or linted.
 extend-exclude = ["src/generated"]
@@ -14,7 +14,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "N", "RUF"]
 
 [tool.ruff.lint.isort]
 # Pants lints a subset of the files at a time, so Ruff cannot always find our packages on disk.
-known-first-party = ["clients", "deployables", "executables", "libs", "modules", "users"]
+known-first-party = ["clients", "deployables", "e2e", "executables", "libs", "modules", "users"]
 
 [tool.ruff.lint.pep8-naming]
 # odata-query's visitor calls each method by its node's class name, such as visit_Identifier.
