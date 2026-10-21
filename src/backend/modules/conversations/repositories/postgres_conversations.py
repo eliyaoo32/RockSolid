@@ -1,14 +1,16 @@
 from collections.abc import Callable
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import DateTime, Text
-from sqlalchemy.dialects.postgresql import insert
+from pydantic_ai.messages import ModelMessagesTypeAdapter
+from sqlalchemy import DateTime
+from sqlalchemy.dialects.postgresql import JSONB, insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlmodel import Field, SQLModel, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from modules.conversations.domain.conversation import ActiveRun, Conversation, ConversationKey
+from modules.conversations.domain.conversation import Conversation, ConversationKey
 
 
 class ConversationRow(SQLModel, table=True):
@@ -20,9 +22,9 @@ class ConversationRow(SQLModel, table=True):
     key_agent: str
     key_owner_id: str | None
     key_thread_id: UUID
-    history: str = Field(sa_type=Text)
-    active_run_run_id: UUID | None
-    active_run_started_at: datetime | None = Field(sa_type=DateTime(timezone=True))
+    # The messages in Pydantic AI's JSON form.
+    messages: list[dict[str, Any]] = Field(sa_type=JSONB)
+    run_started_at: datetime | None = Field(sa_type=DateTime(timezone=True))
     create_time: datetime = Field(sa_type=DateTime(timezone=True))
     update_time: datetime = Field(sa_type=DateTime(timezone=True))
 
@@ -61,33 +63,26 @@ class PostgresConversationRepository:
 
 
 def _to_row(conversation: Conversation) -> ConversationRow:
-    active_run = conversation.active_run
     return ConversationRow(
         id=conversation.id,
         key_agent=conversation.key.agent,
         key_owner_id=conversation.key.owner_id,
         key_thread_id=conversation.key.thread_id,
-        history=conversation.history,
-        active_run_run_id=None if active_run is None else active_run.run_id,
-        active_run_started_at=None if active_run is None else active_run.started_at,
+        messages=ModelMessagesTypeAdapter.dump_python(conversation.messages, mode="json"),
+        run_started_at=conversation.run_started_at,
         create_time=conversation.create_time,
         update_time=conversation.update_time,
     )
 
 
 def _to_conversation(row: ConversationRow) -> Conversation:
-    active_run = (
-        None
-        if row.active_run_run_id is None or row.active_run_started_at is None
-        else ActiveRun(run_id=row.active_run_run_id, started_at=row.active_run_started_at)
-    )
     return Conversation(
         id=row.id,
         key=ConversationKey(
             agent=row.key_agent, owner_id=row.key_owner_id, thread_id=row.key_thread_id
         ),
-        history=row.history,
-        active_run=active_run,
+        messages=ModelMessagesTypeAdapter.validate_python(row.messages),
+        run_started_at=row.run_started_at,
         create_time=row.create_time,
         update_time=row.update_time,
     )

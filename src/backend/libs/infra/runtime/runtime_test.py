@@ -13,10 +13,10 @@ from pydantic_ai import Agent
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
+from libs.infra.agents.deps import AgentDeps
 from libs.infra.cron.cron import CronJob
 from libs.infra.events.events import Subscription
 from libs.infra.llm.models import MissingApiKeyError
-from libs.infra.runtime.agents import AgentDeps
 from libs.infra.runtime.executables import (
     AgentExecutable,
     ASGIApp,

@@ -3,21 +3,33 @@ from uuid import UUID
 
 import pytest
 from pydantic import ValidationError
+from pydantic_ai.messages import (
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    ToolCallPart,
+    ToolReturnPart,
+    UserPromptPart,
+)
 
 from modules.conversations.domain.conversation import (
-    RUN_LEASE,
-    ActiveRun,
+    MAX_RUN_TIME,
     Conversation,
     ConversationBusyError,
     ConversationKey,
-    RunNotActiveError,
 )
 
 NOW = datetime(2026, 10, 17, 9, 0, tzinfo=UTC)
-FIRST_RUN = UUID("00000000-0000-4000-8000-000000000001")
-SECOND_RUN = UUID("00000000-0000-4000-8000-000000000002")
 THREAD = UUID("00000000-0000-4000-8000-0000000000aa")
 KEY = ConversationKey(agent="clients_assistant", owner_id="uid-dana", thread_id=THREAD)
+
+
+def users(text: str) -> ModelRequest:
+    return ModelRequest(parts=[UserPromptPart(text, timestamp=NOW)])
+
+
+def agents(text: str) -> ModelResponse:
+    return ModelResponse(parts=[TextPart(text)])
 
 
 def new_conversation() -> Conversation:
@@ -26,72 +38,72 @@ def new_conversation() -> Conversation:
     )
 
 
-def test_starts_empty_and_answering_nothing() -> None:
+def test_starts_with_no_messages_and_the_agent_not_running() -> None:
     conversation = new_conversation()
 
-    assert conversation.history == "[]"
-    assert conversation.active_run is None
-    assert not conversation.is_answering(NOW)
+    assert conversation.messages == []
+    assert not conversation.is_running(NOW)
 
 
-def test_answers_one_message_at_a_time() -> None:
+def test_a_users_message_starts_the_agents_run_until_it_ends() -> None:
     conversation = new_conversation()
 
-    conversation.start_run(FIRST_RUN, NOW)
+    conversation.append_message(users("Who are my clients?"), NOW)
+    assert conversation.is_running(NOW + MAX_RUN_TIME - timedelta(seconds=1))
 
-    assert conversation.active_run == ActiveRun(run_id=FIRST_RUN, started_at=NOW)
-    assert conversation.is_answering(NOW + RUN_LEASE - timedelta(seconds=1))
-    with pytest.raises(ConversationBusyError):
-        conversation.start_run(SECOND_RUN, NOW + timedelta(minutes=1))
-
-
-def test_finishing_a_run_keeps_its_history_and_frees_the_conversation() -> None:
-    conversation = new_conversation()
-    conversation.start_run(FIRST_RUN, NOW)
-
-    conversation.finish_run(FIRST_RUN, '[{"kind": "request"}]', NOW + timedelta(seconds=5))
-
-    assert conversation.history == '[{"kind": "request"}]'
-    assert conversation.active_run is None
-    assert conversation.update_time == NOW + timedelta(seconds=5)
-    conversation.start_run(SECOND_RUN, NOW + timedelta(seconds=6))
-    assert conversation.active_run == ActiveRun(
-        run_id=SECOND_RUN, started_at=NOW + timedelta(seconds=6)
+    call = ToolCallPart("list_clients", {}, tool_call_id="call-1")
+    conversation.append_message(ModelResponse(parts=[call]), NOW + timedelta(seconds=1))
+    conversation.append_message(
+        ModelRequest(parts=[ToolReturnPart("list_clients", [], tool_call_id="call-1")]),
+        NOW + timedelta(seconds=2),
     )
+    conversation.append_message(agents("You have none yet."), NOW + timedelta(seconds=3))
+    conversation.end_run(NOW + timedelta(seconds=3))
+
+    assert not conversation.is_running(NOW + timedelta(seconds=3))
+    assert len(conversation.messages) == 4, "the agent's tool call and its result are kept too"
+    assert conversation.update_time == NOW + timedelta(seconds=3)
 
 
-def test_abandoning_a_run_keeps_the_history_and_frees_the_conversation() -> None:
+def test_refuses_the_users_next_message_while_the_agent_is_answering() -> None:
     conversation = new_conversation()
-    conversation.start_run(FIRST_RUN, NOW)
-    conversation.finish_run(FIRST_RUN, '["before"]', NOW)
-    conversation.start_run(SECOND_RUN, NOW)
+    conversation.append_message(users("first"), NOW)
 
-    assert conversation.abandon_run(SECOND_RUN, NOW + timedelta(seconds=3))
+    with pytest.raises(ConversationBusyError):
+        conversation.append_message(users("second"), NOW + timedelta(minutes=1))
 
-    assert conversation.history == '["before"]'
-    assert conversation.active_run is None
-    assert not conversation.abandon_run(SECOND_RUN, NOW), "a run is abandoned only once"
+    assert conversation.messages == [users("first")]
 
 
-def test_a_run_that_outlives_its_lease_is_taken_over() -> None:
+def test_a_stopped_run_keeps_the_users_message_and_takes_the_next_one() -> None:
     conversation = new_conversation()
-    conversation.start_run(FIRST_RUN, NOW)
+    conversation.append_message(users("never answered"), NOW)
 
-    assert not conversation.is_answering(NOW + RUN_LEASE)
-    conversation.start_run(SECOND_RUN, NOW + RUN_LEASE)
+    conversation.end_run(NOW + timedelta(seconds=5))
+    conversation.append_message(users("on top"), NOW + timedelta(seconds=6))
 
-    assert conversation.active_run == ActiveRun(run_id=SECOND_RUN, started_at=NOW + RUN_LEASE)
-    with pytest.raises(RunNotActiveError):
-        conversation.finish_run(FIRST_RUN, '["late"]', NOW + RUN_LEASE)
-    assert not conversation.abandon_run(FIRST_RUN, NOW + RUN_LEASE), "the new run stays"
-    assert conversation.history == "[]"
+    assert conversation.messages == [users("never answered"), users("on top")]
+    assert conversation.is_running(NOW + timedelta(seconds=6))
 
 
-def test_a_run_that_never_started_cannot_finish() -> None:
+def test_takes_the_users_next_message_once_a_run_outlives_its_time() -> None:
+    conversation = new_conversation()
+    # A process that died mid-answer never ends its run.
+    conversation.append_message(users("never answered"), NOW)
+
+    assert not conversation.is_running(NOW + MAX_RUN_TIME)
+    conversation.append_message(users("on top"), NOW + MAX_RUN_TIME)
+
+    assert conversation.messages == [users("never answered"), users("on top")]
+    assert conversation.run_started_at == NOW + MAX_RUN_TIME
+
+
+def test_ending_a_run_that_is_not_running_changes_nothing() -> None:
     conversation = new_conversation()
 
-    with pytest.raises(RunNotActiveError):
-        conversation.finish_run(FIRST_RUN, '["answer"]', NOW)
+    conversation.end_run(NOW + timedelta(seconds=5))
+
+    assert conversation.update_time == NOW
 
 
 def test_an_anonymous_conversation_has_no_owner() -> None:

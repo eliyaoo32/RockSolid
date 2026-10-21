@@ -12,10 +12,11 @@ from pydantic_ai import Agent
 from pydantic_ai.usage import UsageLimits
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from libs.infra.agents.deps import AgentDeps
+from libs.infra.agents.endpoint import AgentEndpoint
 from libs.infra.cron.cron import CronJob
 from libs.infra.events.events import Subscription
 from libs.infra.llm.models import Models
-from libs.infra.runtime.agents import AgentDeps, AgentEndpoint
 from libs.infra.tasks.tasks import TaskHandler
 from modules.conversations.services.setup import create_conversation_service
 from modules.users.services.auth import Auth

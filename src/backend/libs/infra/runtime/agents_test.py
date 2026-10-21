@@ -24,8 +24,9 @@ from pydantic_ai.models.function import AgentInfo, DeltaToolCall, DeltaToolCalls
 from pydantic_ai.usage import UsageLimits
 from sqlalchemy import text
 
+from libs.infra.agents.ag_ui import RUN_FAILED
+from libs.infra.agents.deps import AgentDeps
 from libs.infra.llm.models import MissingApiKeyError
-from libs.infra.runtime.agents import RUN_FAILED, AgentDeps
 from libs.infra.runtime.executables import AgentExecutable
 from libs.infra.runtime.runtime import DebugChat
 from libs.testing.agents import AgentClient, AgentReply, assistant_message
@@ -33,7 +34,7 @@ from libs.testing.models import FakeModels
 from libs.testing.runtime import RunningExecutables, run_executables
 from libs.testing.time import eventually
 from libs.testing.users import fake_auth
-from modules.conversations.domain.conversation import RUN_LEASE, ConversationKey
+from modules.conversations.domain.conversation import MAX_RUN_TIME, ConversationKey
 from modules.conversations.services.setup import create_conversation_service
 from modules.users.services.setup import create_auth
 
@@ -253,7 +254,7 @@ async def test_answers_one_message_at_a_time_per_conversation(agents: Running) -
     assert busy.status == 409
     assert busy.refusal == {
         "code": "conversation_busy",
-        "message": "This conversation is answering another message. Send yours again once it ends.",
+        "message": "The agent is still answering the previous message. Send yours once it ends.",
     }
     assert elsewhere.text == "You said: other thread", "other conversations keep answering"
     agents.model.release.set()
@@ -262,7 +263,7 @@ async def test_answers_one_message_at_a_time_per_conversation(agents: Running) -
     assert agents.model.prompts() == ["hold", "meanwhile"]
 
 
-async def test_frees_the_conversation_when_the_client_goes_away(
+async def test_stopping_a_run_keeps_the_users_message_and_takes_the_next_one(
     agents: Running, caplog: pytest.LogCaptureFixture
 ) -> None:
     async with agents.client.stream("greeter", str(THREAD), "hold", token=DANA) as response:
@@ -273,12 +274,12 @@ async def test_frees_the_conversation_when_the_client_goes_away(
         return (await agents.send("still there?")).status == 200
 
     await eventually(answered)
-    assert agents.model.prompts() == ["still there?"], "the run that lost its client kept nothing"
-    assert "ended without an answer" in caplog.text
+    assert agents.model.prompts() == ["hold", "still there?"], "the stopped run kept the message"
+    assert "ended in thread" in caplog.text and "without an answer" in caplog.text
 
 
 @pytest.mark.parametrize(("agent", "message"), [("greeter", "boom"), ("hasty_greeter", "who am i")])
-async def test_a_failed_run_keeps_the_conversation_as_it_was(
+async def test_a_failed_run_keeps_the_users_message_and_takes_the_next_one(
     agents: Running, caplog: pytest.LogCaptureFixture, agent: str, message: str
 ) -> None:
     await agents.send("hello", agent=agent)
@@ -290,37 +291,22 @@ async def test_a_failed_run_keeps_the_conversation_as_it_was(
     assert failed.error == RUN_FAILED
     assert "internal:9000" not in json.dumps(failed.events), "the failure stays in the logs"
     assert "agent run failed" in caplog.text
-    await agents.send("again", agent=agent)
-    assert agents.model.prompts() == ["hello", "again"]
+    assert (await agents.send("again", agent=agent)).status == 200
+    assert agents.model.prompts() == ["hello", message, "again"]
 
 
-async def test_takes_a_conversation_over_once_a_crashed_run_outlives_its_lease(
+async def test_takes_the_next_message_once_a_crashed_run_outlives_its_time(
     agents: Running,
 ) -> None:
-    # A process that crashed mid-run leaves its run active, as this one is.
+    # A process that died mid-answer leaves its run started and never ended, as this one is.
     key = ConversationKey(agent="greeter", owner_id="uid-dana", thread_id=THREAD)
-    await agents.conversations.start_run(key)
+    await agents.conversations.receive_message(key, ModelRequest(parts=[UserPromptPart("lost")]))
 
     assert (await agents.send("too soon")).status == 409
-    agents.running.time.advance(RUN_LEASE)
+    agents.running.time.advance(MAX_RUN_TIME)
 
-    assert (await agents.send("after the lease")).text == "You said: after the lease"
-
-
-async def test_a_run_taken_over_never_overwrites_the_run_that_took_it_over(
-    agents: Running, caplog: pytest.LogCaptureFixture
-) -> None:
-    held = asyncio.create_task(agents.send("hold"))
-    await asyncio.wait_for(agents.model.holding.wait(), timeout=5)
-    agents.running.time.advance(RUN_LEASE)
-
-    assert (await agents.send("took over")).text == "You said: took over"
-    agents.model.release.set()
-
-    assert (await held).text == "held", "the slow run still answers its own client"
-    assert "finished after another run took" in caplog.text
-    await agents.send("next")
-    assert agents.model.prompts() == ["took over", "next"]
+    assert (await agents.send("on top")).text == "You said: on top"
+    assert agents.model.prompts() == ["lost", "on top"], "the model hears the unanswered one too"
 
 
 # Requests the agent refuses before running, and the code of each refusal.

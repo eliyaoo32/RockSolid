@@ -1,27 +1,24 @@
-"""A conversation between a caller and an agent, which answers one message at a time."""
+"""A conversation between a caller and an agent: every message said, and whether the agent is
+answering right now."""
 
 from datetime import datetime, timedelta
 from typing import Annotated
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints
+from pydantic_ai.messages import ModelMessage, ModelRequest, UserPromptPart
 
 from modules.users.domain.user import UserId
 
-# A run still answering after this long is taken for dead, such as when its process crashed,
-# and the next message may take the conversation over.
-RUN_LEASE = timedelta(minutes=10)
+# The agent's run is stopped after this long. So a run that started earlier is over, even when
+# its process died without saying so, and the user can send their next message.
+MAX_RUN_TIME = timedelta(minutes=10)
 
 AgentName = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
 
 
 class ConversationBusyError(Exception):
-    """The conversation is answering another message."""
-
-
-class RunNotActiveError(Exception):
-    """The run is not the conversation's active run: it already ended, or another run took the
-    conversation over after the run's lease expired."""
+    """The agent is still answering the conversation's previous message."""
 
 
 class ConversationKey(BaseModel):
@@ -36,51 +33,41 @@ class ConversationKey(BaseModel):
     thread_id: UUID
 
 
-class ActiveRun(BaseModel):
-    """The run answering the conversation's latest message."""
-
-    model_config = ConfigDict(frozen=True)
-
-    run_id: UUID
-    started_at: AwareDatetime
-
-
 class Conversation(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
 
     id: UUID = Field(frozen=True)
     key: ConversationKey = Field(frozen=True)
-    # The messages so far, as JSON in the agent runtime's format.
-    history: str = "[]"
-    active_run: ActiveRun | None = None
+    # Every message so far, oldest first, as Pydantic AI's own messages (an owner decision).
+    messages: list[ModelMessage] = Field(default_factory=list[ModelMessage])
+    # When the agent started answering the user's latest message; None when it is not answering.
+    run_started_at: AwareDatetime | None = None
     create_time: AwareDatetime = Field(frozen=True)
     update_time: AwareDatetime
 
-    def is_answering(self, now: datetime) -> bool:
-        """Whether a run is answering a message and its lease has not expired."""
-        return self.active_run is not None and now < self.active_run.started_at + RUN_LEASE
+    def is_running(self, now: datetime) -> bool:
+        """Whether the agent is answering: its run started less than MAX_RUN_TIME ago."""
+        return self.run_started_at is not None and now < self.run_started_at + MAX_RUN_TIME
 
-    def start_run(self, run_id: UUID, now: datetime) -> None:
-        """Starts answering a message. Raises ConversationBusyError while another run answers."""
-        if self.is_answering(now):
-            raise ConversationBusyError
-        self.active_run = ActiveRun(run_id=run_id, started_at=now)
+    def append_message(self, message: ModelMessage, now: datetime) -> None:
+        """Adds a message. A user's message starts the agent's run, and is refused with
+        ConversationBusyError while the agent is answering the previous one."""
+        if _from_the_user(message):
+            if self.is_running(now):
+                raise ConversationBusyError
+            self.run_started_at = now
+        self.messages.append(message)
         self.update_time = now
 
-    def finish_run(self, run_id: UUID, history: str, now: datetime) -> None:
-        """Keeps the history the run ended with. Raises RunNotActiveError when the run is not the
-        active one, so a run taken over never overwrites the run that took over."""
-        if self.active_run is None or self.active_run.run_id != run_id:
-            raise RunNotActiveError
-        self.history = history
-        self.active_run = None
-        self.update_time = now
+    def end_run(self, now: datetime) -> None:
+        """The agent stopped answering: it answered, failed, or was stopped. Every message stays,
+        so the user can send their next message after an unanswered one."""
+        if self.run_started_at is not None:
+            self.run_started_at = None
+            self.update_time = now
 
-    def abandon_run(self, run_id: UUID, now: datetime) -> bool:
-        """Ends the run without changing the history. Returns False when the run is not the
-        active one, which leaves the conversation as it is."""
-        if self.active_run is None or self.active_run.run_id != run_id:
-            return False
-        self.active_run = None
-        self.update_time = now
-        return True
+
+def _from_the_user(message: ModelMessage) -> bool:
+    return isinstance(message, ModelRequest) and any(
+        isinstance(part, UserPromptPart) for part in message.parts
+    )

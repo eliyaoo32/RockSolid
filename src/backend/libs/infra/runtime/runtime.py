@@ -22,11 +22,11 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from libs.infra.agents.deps import AgentDeps
 from libs.infra.cron.cron import CronJob, CronRunner, InProcessCronRunner
 from libs.infra.events.events import EventBus, PostgresEventBus, Subscription, migrate_event_log
 from libs.infra.llm.models import ConfiguredModels
 from libs.infra.logs.json_logs import configure_logging, request_id
-from libs.infra.runtime.agents import AgentDeps
 from libs.infra.runtime.executables import (
     AgentExecutable,
     CronExecutable,

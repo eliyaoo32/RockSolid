@@ -1,19 +1,14 @@
-"""The conversations use cases: answering one message at a time, and keeping what was said."""
+"""The conversations use cases: taking the user's message, keeping the agent's answer, and ending
+the agent's run."""
 
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Sequence
 from datetime import datetime
-from uuid import UUID, uuid4
+from uuid import uuid4
+
+from pydantic_ai.messages import ModelMessage
 
 from modules.conversations.domain.conversation import Conversation, ConversationKey
 from modules.conversations.repositories.conversation_repository import ConversationRepository
-
-
-@dataclass(frozen=True)
-class StartedRun:
-    run_id: UUID
-    # The messages before this run, as the agent runtime stored them.
-    history: str
 
 
 class ConversationService:
@@ -21,33 +16,35 @@ class ConversationService:
         self._repository = repository
         self._now = now
 
-    async def start_run(self, key: ConversationKey) -> StartedRun:
-        """Starts answering a message in the conversation, creating it on its first message.
-        Raises ConversationBusyError while another run answers it."""
+    async def receive_message(
+        self, key: ConversationKey, message: ModelMessage
+    ) -> list[ModelMessage]:
+        """Adds the user's message, creating the conversation on its first one, and returns every
+        message for the agent to answer. Raises ConversationBusyError while the agent is still
+        answering the previous message."""
         now = self._now()
-        run_id = uuid4()
 
-        def start(conversation: Conversation) -> StartedRun:
-            conversation.start_run(run_id, now)
-            return StartedRun(run_id, conversation.history)
+        def receive(conversation: Conversation) -> list[ModelMessage]:
+            conversation.append_message(message, now)
+            return list(conversation.messages)
 
-        return await self._repository.change(key, self._new(key, now), start)
+        return await self._repository.change(key, self._new(key, now), receive)
 
-    async def finish_run(self, key: ConversationKey, run_id: UUID, history: str) -> None:
-        """Keeps the history the run ended with. Raises RunNotActiveError when another run took
-        the conversation over, which then keeps its own history."""
+    async def append_messages(self, key: ConversationKey, messages: Sequence[ModelMessage]) -> None:
+        """Adds the messages the agent's run produced: its tool calls, their results, and its
+        answer."""
         now = self._now()
-        await self._repository.change(
-            key, self._new(key, now), lambda c: c.finish_run(run_id, history, now)
-        )
 
-    async def abandon_run(self, key: ConversationKey, run_id: UUID) -> bool:
-        """Ends a run that did not finish, keeping the history as it was before it. Returns
-        False when the run had already ended or been taken over."""
+        def append(conversation: Conversation) -> None:
+            for message in messages:
+                conversation.append_message(message, now)
+
+        await self._repository.change(key, self._new(key, now), append)
+
+    async def end_run(self, key: ConversationKey) -> None:
+        """Ends the agent's run, whether it answered, failed, or was stopped."""
         now = self._now()
-        return await self._repository.change(
-            key, self._new(key, now), lambda c: c.abandon_run(run_id, now)
-        )
+        await self._repository.change(key, self._new(key, now), lambda c: c.end_run(now))
 
     def _new(self, key: ConversationKey, now: datetime) -> Conversation:
         """The conversation to add when the key has none yet."""

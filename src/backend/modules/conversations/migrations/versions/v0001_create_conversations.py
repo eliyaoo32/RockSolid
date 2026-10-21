@@ -2,6 +2,7 @@
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision = "0001"
 down_revision = None
@@ -14,9 +15,9 @@ def upgrade() -> None:
         sa.Column("key_agent", sa.String, nullable=False),
         sa.Column("key_owner_id", sa.String, nullable=True),
         sa.Column("key_thread_id", sa.Uuid(), nullable=False),
-        sa.Column("history", sa.Text, nullable=False),
-        sa.Column("active_run_run_id", sa.Uuid(), nullable=True),
-        sa.Column("active_run_started_at", sa.DateTime(timezone=True), nullable=True),
+        # The messages in Pydantic AI's JSON form.
+        sa.Column("messages", postgresql.JSONB(), nullable=False),
+        sa.Column("run_started_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("create_time", sa.DateTime(timezone=True), nullable=False),
         sa.Column("update_time", sa.DateTime(timezone=True), nullable=False),
         # One conversation per key; an anonymous one (no owner) is unique by agent and thread too.

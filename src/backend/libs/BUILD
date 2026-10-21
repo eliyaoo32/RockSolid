@@ -1,10 +1,14 @@
-# Import rules for every lib, written once. A lib never uses a module, with one exception: the
+# Import rules for every lib, written once. A lib never uses a module, with two exceptions: the
 # runtime builds the users module's sign-in service, because every API and agent needs the
-# caller, and the conversations module's service, because every agent keeps its conversations.
+# caller; and the agents lib, which serves agents, signs callers in and keeps their
+# conversations in the conversations module.
 __dependencies_rules__(
+    # Tests come first, so their rule applies to them in every lib. Only tests may use the shared
+    # test helpers.
     (
-        "/infra/runtime/**",
+        {"type": "python_test*", "path": "/infra/**"},
         "./*",
+        "//src/backend/libs/infra/agents/**",
         "//src/backend/libs/infra/cron/**",
         "//src/backend/libs/infra/events/**",
         "//src/backend/libs/infra/llm/**",
@@ -14,22 +18,21 @@ __dependencies_rules__(
         "//src/backend/libs/testing/**",
         "//src/backend/modules/conversations/domain/**",
         "//src/backend/modules/conversations/services/**",
-        "//src/backend/modules/users/domain/**",
         "//src/backend/modules/users/services/**",
         "//3rdparty/python#*",
         "!*",
     ),
-    # Only tests may use the shared test helpers.
     (
-        {"type": "python_test*", "path": "/infra/**"},
+        "/infra/runtime/**",
         "./*",
+        "//src/backend/libs/infra/agents/**",
+        "//src/backend/libs/infra/cron/**",
         "//src/backend/libs/infra/events/**",
         "//src/backend/libs/infra/llm/**",
         "//src/backend/libs/infra/logs/**",
         "//src/backend/libs/infra/retry/**",
         "//src/backend/libs/infra/tasks/**",
         "//src/backend/libs/testing/**",
-        "//src/backend/modules/conversations/domain/**",
         "//src/backend/modules/conversations/services/**",
         "//src/backend/modules/users/services/**",
         "//3rdparty/python#*",
@@ -46,6 +49,17 @@ __dependencies_rules__(
         "//src/backend/libs/infra/db/**",
         "//src/backend/libs/infra/logs/**",
         "//src/backend/libs/infra/retry/**",
+        "//3rdparty/python#*",
+        "!*",
+    ),
+    # The agents lib signs callers in and keeps their conversations.
+    (
+        "/infra/agents/**",
+        "./*",
+        "//src/backend/modules/conversations/domain/**",
+        "//src/backend/modules/conversations/services/**",
+        "//src/backend/modules/users/domain/**",
+        "//src/backend/modules/users/services/**",
         "//3rdparty/python#*",
         "!*",
     ),

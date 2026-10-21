@@ -3,8 +3,8 @@
 from pydantic import ValidationError
 from pydantic_ai import Agent, ModelRetry, RunContext, Tool
 
+from libs.infra.agents.deps import AgentDeps
 from libs.infra.filtering.filtering import InvalidFilterError
-from libs.infra.runtime.agents import AgentDeps
 from libs.infra.runtime.executables import AgentExecutable
 from modules.clients.domain.client import Client
 from modules.clients.services.clients import MAX_PAGE_SIZE
