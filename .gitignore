@@ -12,3 +12,6 @@ coverage/
 
 # Local settings; the dev settings are committed in .env.development
 .env
+
+# Taste Skill writes its browser screenshots and downloaded images here
+/.taste-skill/

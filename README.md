@@ -175,7 +175,7 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 
 ## Testing
 
-* **Three levels, each at the lowest level that can catch the bug:** unit tests for domain rules and each frontend file, component tests for one executable or the whole frontend, and E2E tests for the real system: every backend deployable and the production frontend build in Chrome, run together by `pants test`.
+* **Three levels: unit, component, and E2E.** Each behavior is tested at the lowest level that can catch its bug.
 * **Tests read as scenarios.** Drivers hide how each step is done, so a test shows only what happens.
 * **Every external dependency is faked through injection**, using the same runtime as production. No test reaches a real third party.
 * **Always tested:** permissions, tenant isolation, full recovery from every failure, and crash recovery.
@@ -183,26 +183,13 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 
 ### How E2E Tests Work
 
-E2E tests live in `src/tests/e2e/` and are Python tests with Playwright, run by `pants test` like every other test. `make e2e` runs only them, and `make verify` includes them.
+`make e2e` runs them, and `make verify` includes them. They live in `src/tests/e2e/`, in Python with Playwright.
 
-* **The real system, without Docker images:** each test gets an empty database on an ephemeral Postgres, and every backend deployable runs on it as its own process, the way production runs it: `migrate`, then `serve`. A deployable is any folder in `src/backend/deployables/` with a `main.py`, so a new one joins the tests without being listed anywhere.
-* **The production frontend build:** `make e2e-frontend` builds the frontend into the test's folder. The browser opens a made-up origin, `http://app.test`, and the test answers it: each call to a generated service goes to the deployable whose executables serve it, and every other path gets the build, so the app and its backend share one origin as they do in production.
-* **Google Chrome as installed:** the tests use the Chrome already on the machine, so no browser is downloaded. GitHub's runners have it too.
-* **Signing in with a debug user, not with Google:** Firebase's Google sign-in window loads Google's scripts from the internet, and no test reaches a third party. The frontend's code stays exactly as in production; instead:
-  * the backend runs with `DEBUG=true`, `DEBUG_USER_JWT`, and `DEBUG_USER_NAME`. It then signs in only that token, as that one user, and `GetCurrentUser` returns them. Without `DEBUG=true`, the token signs in nobody, and a test proves it;
-  * every browser starts with a Firebase session in its storage, the way the Firebase SDK keeps a user who signed in before, with `DEBUG_USER_JWT` as the ID token. The app restores it and sends the token to the backend;
-  * the one call the Firebase SDK makes to Google on restoring a session, `accounts:lookup`, gets a fake answer, and every other request off the app's origin fails;
-  * the Google sign-in button itself is covered by the frontend's unit tests, against a fake of Firebase. E2E tests never click it.
+* **The real system:** every deployable runs as its own process on a fresh database, and Chrome loads the production frontend build.
+* **A debug user instead of Google:** the backend runs with `DEBUG=true` and accepts only `DEBUG_USER_JWT`. The browser starts with a Firebase session holding that token, so no test reaches the internet.
+* **The real clock:** time-based behavior is tested in component tests.
 
-  `DEBUG` is never true in production.
-* **Real time:** the backend keeps the real clock, so behavior that depends on time, such as cron jobs and retries, is tested in component tests with `FakeTime`.
-
-What an E2E test covers:
-
-* **Each feature's main journey,** across screens, the way a user does it, including reloads and coming back later.
-* **Failures that need real processes,** such as the backend restarting in the middle of a journey. Business-rule edge cases stay in unit and component tests.
-* **Every RPC the frontend calls,** at least once through the UI.
-* **Scenarios through a driver:** `driver.when.*` acts in the browser and `driver.get.*` returns what the user sees. Assertions use Playwright's `expect`, which waits for the page instead of sleeping.
+Each feature gets its main journey, the failures that need real processes (such as a backend restart), and every RPC the frontend calls.
 
 ## Local Development
 
@@ -297,6 +284,9 @@ The boilerplate will include the following skills:
 
 * filtering - The filter syntax List methods accept, and how to make a field filterable.
 
+* [Emil Kowalski's skills](https://github.com/emilkowalski/skills) - UI polish and animation.
+
+* [Taste Skill](https://www.tasteskill.dev/docs) - Frontend design that doesn't look generic.
 ### Harness Consistency Check
 
 Every harness must read the same instructions, skills, and subagents. A checker in the verification command fails when they drift apart:
