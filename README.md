@@ -297,15 +297,11 @@ The boilerplate will include the following skills:
 
 * filtering - The filter syntax List methods accept, and how to make a field filterable.
 
-* [Emil Kowalski's skills](https://github.com/emilkowalski/skills) - Design engineering and animation: emil-design-eng, animate, review-animations, improve-animations, find-animation-opportunities, animation-performance, animation-vocabulary, pick-ui-library, prototype, break-ui, ask-sonner, and, for native apps, animate-expo, apple-design, write-swift, and mobile-native.
+* [Emil Kowalski's skills](https://github.com/emilkowalski/skills) - UI polish and animation.
 
-* [Taste Skill](https://www.tasteskill.dev/docs) (design-taste-frontend) - Frontend design with a distinct direction instead of the category default, checked in a real browser by its own scripts.
+* [Taste Skill](https://www.tasteskill.dev/docs) - Frontend design that doesn't look generic.
 
-Skills from other repositories are installed with the `skills` CLI for Pi and Antigravity, which read `.agents/skills/`; Claude Code reads the same folder through `.claude/skills`. `skills-lock.json` records each one's source:
-
-```bash
-pnpm dlx skills@latest add <repository> -a pi -a antigravity --skill <name> -y
-```
+Add a skill with `pnpm dlx skills@latest add <repo> -a pi -a antigravity -y`. Claude Code reads the same folder through `.claude/skills`.
 
 ### Harness Consistency Check
 
