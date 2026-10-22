@@ -1,6 +1,15 @@
 # Import rules for every module, written once. `/*/` is any module's folder, `./` is the folder of
 # the file being checked, and `../` is its module's folder. The first matching selector applies.
 __dependencies_rules__(
+    # The conversations domain also holds Pydantic AI's messages, by the owner's decision.
+    (
+        "/conversations/domain/**",
+        "//src/backend/modules/*/domain/**",
+        "//3rdparty/python#pydantic",
+        "//3rdparty/python#pydantic-ai-slim",
+        "//3rdparty/python#pytest",
+        "!*",
+    ),
     # Domain code: domains and Pydantic only, so no database, provider, or transport code.
     (
         "/*/domain/**",

@@ -9,12 +9,16 @@ import httpx
 import pytest
 from connectrpc.interceptor import MetadataInterceptor
 from pydantic import BaseModel
+from pydantic_ai import Agent
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
+from libs.infra.agents.deps import AgentDeps
 from libs.infra.cron.cron import CronJob
 from libs.infra.events.events import Subscription
+from libs.infra.llm.models import MissingApiKeyError
 from libs.infra.runtime.executables import (
+    AgentExecutable,
     ASGIApp,
     CronExecutable,
     DomainEventsListenerExecutable,
@@ -29,6 +33,7 @@ from libs.infra.runtime.executables import (
 )
 from libs.infra.runtime.runtime import Runtime, run
 from libs.infra.tasks.tasks import TaskHandler, task_type_of
+from libs.testing.runtime import NO_MODELS
 from modules.users.services.setup import create_auth
 
 migrated: list[AsyncEngine] = []
@@ -172,6 +177,16 @@ class FakeRpcApplication:
         await pong(scope, receive, send)
 
 
+class Concierge(AgentExecutable):
+    """An agent that anyone talks to, on an Ollama model."""
+
+    name = "concierge"
+    require_auth = False
+
+    def agent(self) -> Agent[AgentDeps, str]:
+        return Agent(self.infra.models.ollama("concierge-model"), deps_type=AgentDeps)
+
+
 class GreetApi(RpcServiceExecutable):
     def application(self, interceptors: Sequence[MetadataInterceptor[Any]]) -> RpcApplication:
         return FakeRpcApplication(interceptors)
@@ -186,6 +201,7 @@ def make_infra(database_url: str) -> Infra:
         database=create_async_engine(database_url),
         auth=create_auth("rocksolid-test"),
         now=now,
+        models=NO_MODELS,
     )
 
 
@@ -390,3 +406,49 @@ async def test_migrates_the_task_queue_that_every_module_queues_to(infra: Infra)
     async with infra.database.connect() as connection:
         found = await connection.execute(text("SELECT to_regclass('tasks.queue')::text"))
         assert found.scalar() == "tasks.queue"
+
+
+@pytest.mark.usefixtures("environment")
+async def test_serves_each_agents_debug_chat_with_debug_true_and_a_debug_user(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    for name, value in {
+        "DEBUG": "true",
+        "DEBUG_USER_JWT": "debug-jwt",
+        "DEBUG_CHAT_PORT": "0",
+        "OLLAMA_API_KEY": "ollama-key",
+    }.items():
+        monkeypatch.setenv(name, value)
+    stop = asyncio.Event()
+    stop.set()
+
+    await run(["serve"], [Concierge], stop)
+
+    # The runtime logs JSON lines to stdout.
+    assert "serving agent concierge's debug chat" in capsys.readouterr().out
+
+
+@pytest.mark.usefixtures("environment")
+async def test_serves_no_debug_chat_with_debug_true_but_no_debug_user(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("DEBUG", "true")
+    monkeypatch.setenv("OLLAMA_API_KEY", "ollama-key")
+    stop = asyncio.Event()
+    stop.set()
+
+    await run(["serve"], [Concierge], stop)
+
+    logs = capsys.readouterr().out
+    assert "DEBUG is true without DEBUG_USER_JWT" in logs
+    assert "debug chat on" not in logs
+
+
+@pytest.mark.usefixtures("environment")
+async def test_refuses_to_serve_an_ollama_agent_without_an_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("OLLAMA_API_KEY", raising=False)
+
+    with pytest.raises(MissingApiKeyError, match="concierge-model runs on Ollama"):
+        await run(["serve"], [Concierge], asyncio.Event())

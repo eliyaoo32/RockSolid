@@ -1,28 +1,40 @@
 # Import rules for every lib, written once. A lib never uses a module, with one exception: the
-# runtime builds the users module's sign-in service, because every API needs the caller.
+# runtime builds the users module's sign-in service, because every API and agent needs the
+# caller, and keeps each agent's conversations in the conversations module.
 __dependencies_rules__(
+    # Tests come first, so their rule applies to them in every lib. Only tests may use the shared
+    # test helpers.
     (
-        "/infra/runtime/**",
+        {"type": "python_test*", "path": "/infra/**"},
         "./*",
+        "//src/backend/libs/infra/agents/**",
         "//src/backend/libs/infra/cron/**",
         "//src/backend/libs/infra/events/**",
+        "//src/backend/libs/infra/llm/**",
         "//src/backend/libs/infra/logs/**",
         "//src/backend/libs/infra/retry/**",
         "//src/backend/libs/infra/tasks/**",
         "//src/backend/libs/testing/**",
+        "//src/backend/modules/conversations/domain/**",
+        "//src/backend/modules/conversations/services/**",
         "//src/backend/modules/users/services/**",
         "//3rdparty/python#*",
         "!*",
     ),
-    # Only tests may use the shared test helpers.
     (
-        {"type": "python_test*", "path": "/infra/**"},
+        "/infra/runtime/**",
         "./*",
+        "//src/backend/libs/infra/agents/**",
+        "//src/backend/libs/infra/cron/**",
         "//src/backend/libs/infra/events/**",
+        "//src/backend/libs/infra/llm/**",
         "//src/backend/libs/infra/logs/**",
         "//src/backend/libs/infra/retry/**",
         "//src/backend/libs/infra/tasks/**",
         "//src/backend/libs/testing/**",
+        "//src/backend/modules/conversations/domain/**",
+        "//src/backend/modules/conversations/services/**",
+        "//src/backend/modules/users/services/**",
         "//3rdparty/python#*",
         "!*",
     ),
@@ -40,6 +52,14 @@ __dependencies_rules__(
         "//3rdparty/python#*",
         "!*",
     ),
+    # The agents lib names its caller with the users module's user ID.
+    (
+        "/infra/agents/**",
+        "./*",
+        "//src/backend/modules/users/domain/**",
+        "//3rdparty/python#*",
+        "!*",
+    ),
     # The database helpers sleep with the cron lib's wait.
     ("/infra/db/**", "./*", "//src/backend/libs/infra/cron/**", "//3rdparty/python#*", "!*"),
     ("/infra/**", "./*", "//src/backend/libs/infra/logs/**", "//3rdparty/python#*", "!*"),
@@ -48,6 +68,7 @@ __dependencies_rules__(
         "/testing/**",
         "./*",
         "//src/backend/libs/infra/**",
+        "//src/backend/modules/users/domain/**",
         "//src/backend/modules/users/services/**",
         "//3rdparty/python#*",
         "!*",

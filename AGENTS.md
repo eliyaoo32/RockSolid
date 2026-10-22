@@ -10,7 +10,7 @@
 - **Never edit generated code by hand.** Change the `.proto` file and regenerate.
 - **Never read environment variables outside the runtime's `InfraSettings` and the frontend's `src/clients/web-app/src/config.ts`.**
 - **Never send a request to a real third party from a test.**
-- **Never run a deployable with `DEBUG=true` in production:** a debug backend with `DEBUG_USER_JWT` signs that one token in without Firebase.
+- **Never run a deployable with `DEBUG=true` in production:** a debug backend with `DEBUG_USER_JWT` signs that one token in without Firebase, and serves each agent's web chat as that user.
 - **Never spend money without approval:** no paid services, paid API calls, or paid CI resources unless the owner approves.
 
 ## Working Style
@@ -57,7 +57,7 @@ src/tests/e2e/                         # E2E tests of the whole system
 
 ### Domain and Persistence
 - **Pydantic Domain Models:** Entities, aggregates, and value objects are Pydantic models. Value objects are frozen (`frozen=True`). Entities validate every change (`validate_assignment=True`), so an entity is never invalid.
-- **The Domain Knows No Vendors:** Domain code, its comments, its test names, and its limits never mention or depend on a provider or tool, such as an auth provider, a database, an ORM, or a cloud. The domain states its own rules, and the adapter that talks to the provider maps the provider's values to the domain's.
+- **The Domain Knows No Vendors:** Domain code, its comments, its test names, and its limits never mention or depend on a provider or tool, such as an auth provider, a database, an ORM, or a cloud. The domain states its own rules, and the adapter that talks to the provider maps the provider's values to the domain's. One exception, by the owner's decision: the conversations domain stores Pydantic AI's own messages (`ModelMessage`), so a conversation holds exactly what the agent was told and said.
 - **Value Objects Stay Nested:** A value object has no ID and no lifecycle, and it may carry logic. An entity holds each value object as one nested object, in the domain and in the API, never as its fields flattened into the entity. A value object used by several modules lives in `src/backend/modules/shared/domain/`.
 - **Value Objects Are Prefixed Columns:** In the database, a value object's fields are columns prefixed with the name of the entity field that holds it (`address_city`, `address_street`). The repository maps them.
 - **Repositories:** A repository's interface and its implementation both live in `repositories/`, in separate files: `<aggregate>_repository.py` for the interface and `postgres_<aggregates>.py` for a Postgres implementation. Application services import only the interface; only the module's `services/setup.py` imports an implementation. The implementation talks to a database, or to a provider's API as `firebase_users.py` does to sign users in. A database repository uses SQLModel table models (`table=True`). It converts with `model_validate` (`<Entity>.model_validate(row, from_attributes=True)` and `<Entity>Row.model_validate(entity)`), and maps by hand only the fields whose name or shape differ, such as value-object columns.
@@ -67,7 +67,7 @@ src/tests/e2e/                         # E2E tests of the whole system
 
 ### Services and Interceptors
 - **Capabilities Are Services:** An executable's constructor takes services: the module services it serves, and the services it uses, such as `Auth`. It never takes bare functions, settings, or a provider's client.
-- **Checks for Every Call Run in Interceptors:** Sign-in runs once per call, in the `Auth` interceptor registered on the API (`interceptors=[auth]`). Handlers call `auth.from_ctx(ctx)` for the caller and never read headers themselves.
+- **Checks for Every Call Run in Interceptors:** Sign-in runs once per call, in the `Auth` interceptor registered on the API (`interceptors=[auth]`). Handlers call `auth.from_ctx(ctx)` for the caller and never read headers themselves. For an agent, the runtime signs in each request with the same `Auth`, and tools read the caller from their deps.
 - **Provider Code Lives With Its Capability:** A provider's implementation is a repository in the module that owns the capability (`src/backend/modules/users/repositories/firebase_users.py`), or lives in its capability's folder in `src/backend/libs/infra/`.
 
 ### Executables and Deployables
@@ -79,6 +79,12 @@ src/tests/e2e/                         # E2E tests of the whole system
 - **Tasks:** A task is a frozen Pydantic model in the module's `domain/` that asks for work, with a class-level `task_type` of the form `"<module>.<TaskClassName>"`. Name it in the imperative, after the work it asks for. The queue stores `task_type`, so it never changes; fields are only added, with defaults, so tasks already in the queue still load.
 - **Recurring Tasks:** Work that recurs, such as every two hours, is a cron job that queues a task.
 - **Consuming:** A consumer executable subclasses `TasksConsumerExecutable` and returns `TaskHandler(task_class, handler)` from `handlers()`. Each task type has exactly one handler across all deployables. A handler may run a task more than once, so it must be safe to run again. A handler's `retry` strategy and `NonRetryableError` work as they do for subscriptions, and a task that stops retrying is parked.
+- **Agent Executables:** An AI agent is a class that subclasses `AgentExecutable` and has three things:
+  - `name`: the agent answers at `/agents/<name>`, and its users' conversations are stored under this name. Never rename it, or its users lose their conversations.
+  - `require_auth`: `True` when only signed-in users may talk to the agent.
+  - `agent()`: a method that builds and returns the Pydantic AI `Agent`, with its instructions and tools. It picks its model with `self.infra.models`, such as `self.infra.models.ollama(MODEL)`, where `MODEL` is a constant at the top of the file.
+- **Agent Tools Act as the User:** A tool gets the signed-in user's ID from `ctx.deps.signed_in_user_id()` and passes it to module services, the same way an RPC handler does. A tool never has a user ID parameter: the model fills in tool parameters, so such a parameter would let the model, or a message a user typed, act as someone else. When the model sent a value it can fix, such as an invalid filter, the tool raises `ModelRetry` with a message saying what is wrong, and the model tries again.
+- **Debug Mode Is One List:** Every effect of `DEBUG=true` is listed in the README's "Debug Mode" section. A change that adds an effect adds it there.
 - **A Deployable Is a List:** A deployable's `main.py` lists its executable classes and hands them to the runtime's `run`. It builds nothing itself.
 - **Logging:** Write logs with Python's `logging` module (`logger = logging.getLogger(__name__)`), never with `print`. The runtime turns every log line into JSON on stdout and adds the ID of the request it belongs to, so all the logs of one request can be found together.
 - **Migrate, Then Serve:** The image runs `migrate` once per release and `serve` on every replica. `serve` never migrates.
@@ -134,8 +140,10 @@ src/clients/web-app/tests/framework/                                 # the front
 src/clients/web-app/src/<file>.test.tsx                              # frontend unit test, next to its source
 src/tests/e2e/<feature>_test.py                               # E2E tests, named after the feature
 src/tests/e2e/framework/                                      # the running system and the E2E driver
+src/tests/e2e/framework/fakes/<third_party>.py                # a fake server for each third party
 ```
 - Drivers, fixtures, and fakes live only in `framework/` folders or `src/backend/libs/testing/`, never in test files or product code.
+- An E2E fake of a third party is a server in `src/tests/e2e/framework/fakes/`, one file named after the third party (`fakes/ollama.py`), with its committed responses in `fakes/testdata/`.
 - Only test code may import `src/backend/libs/testing/`.
 
 ### Test-Driven Development
@@ -167,7 +175,7 @@ Each behavior is tested at the lowest level that can catch its bug, and each lev
   - **API-Driven Before the UI Exists:** A feature whose UI does not exist yet runs its E2E tests through the ConnectRPC API, with the generated client and the same rules. The feature that adds the UI adds the UI-driven tests.
   - **Several Scenarios per Feature:** Each feature has several E2E tests, each a chain of steps: the main lifecycle, and one for each family of failures, such as one of our services failing or a third party answering wrongly.
 - **Blueprint Scenarios Name Their Level:** Each scenario in a feature's blueprint names the level that tests it.
-- **Agents in Tests:** Component and E2E tests run AI agents on Pydantic AI's `TestModel` or `FunctionModel`. Only evals call a real model, and they run outside the verification command.
+- **Agents in Tests:** Component tests run AI agents on Pydantic AI's `TestModel` or `FunctionModel`, passed to `run_executables(models=FakeModels(...))`; no test may reach a real model. E2E tests point Ollama at a fake server that streams a committed answer. Only evals call a real model, and they run outside the verification command.
 
 ### Coverage
 - **100% Coverage:** Every line and branch is covered. The wireframe, generated code, generated UI primitives, and entry points that only wire and start the process (`src/backend/deployables/` and `src/clients/web-app/src/main.tsx`) are exempt. The frontend lists its exemptions only in `vite.config.ts`.
@@ -213,7 +221,7 @@ Only the runtime creates infra, so tests swap every external dependency the same
 | Database | Real ephemeral Postgres (testcontainers); each test starts from empty tables | Real ephemeral Postgres |
 | Other RPC services | A fake implementation of the generated service, served by a local test server | The real deployable, or the same fake |
 | Third-party HTTP APIs | Recorded responses replayed with `pytest-recording`; `respx` for one-off stubs | A fake server per third party, serving committed fixtures |
-| LLM | `TestModel` or `FunctionModel`, injected | The test model, selected through an environment variable |
+| LLM | `TestModel` or `FunctionModel`, injected through `FakeModels` | A fake Ollama server, set as `OLLAMA_BASE_URL`, streaming a committed answer |
 | Firebase Auth | A fake token verifier, injected | The backend's debug user (`DEBUG=true`, `DEBUG_USER_JWT`), signed in through a Firebase session the test stores in the browser |
 | Time | The injected clock | The real clock; time-driven behavior is tested in component tests |
 | Events and tasks | Real, on Postgres | Real, on Postgres |

@@ -5,4 +5,8 @@ python_sources(
 
 python_test_utils(name="test_utils")
 
-python_tests(name="tests")
+# The debug chat page tests serve in place of the CDN's, and a conversation an earlier release
+# stored.
+files(name="testdata", sources=["testdata/*"])
+
+python_tests(name="tests", dependencies=[":testdata"])

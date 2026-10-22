@@ -17,8 +17,12 @@ export default defineConfig({
   envDir: resolve(import.meta.dirname, "../../.."),
   envPrefix: "FIREBASE_",
   server: {
-    // Calls to the generated services (`/<package>.v<N>.<Service>/<Method>`) go to the local backend.
-    proxy: { "^/\\w+\\.v\\d+\\.": "http://localhost:8080" },
+    // Calls to the generated services (`/<package>.v<N>.<Service>/<Method>`) and to agents
+    // (`/agents/<name>`) go to the local backend.
+    proxy: {
+      "^/\\w+\\.v\\d+\\.": "http://localhost:8080",
+      "^/agents/": "http://localhost:8080",
+    },
   },
   test: {
     environment: "jsdom",

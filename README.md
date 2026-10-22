@@ -121,7 +121,7 @@ An executable is a class. The runtime knows two kinds:
 * **HTTP executables** (RPC services and AI agents) give the runtime their routes, which it mounts on the deployable's one HTTP server.
 * **Background executables** (cron schedulers, tasks consumers, and domain-events listeners) work outside HTTP.
 
-Each executable type has its own base class under these two, which holds the wiring every executable of that type shares. `RpcServiceExecutable` mounts one ConnectRPC service and signs in every call. `CronExecutable`, `TasksConsumerExecutable`, and `DomainEventsListenerExecutable` hold as many cron jobs, task handlers, and subscriptions as their business area needs. Each executable class names the module schemas it needs migrated, so the runtime migrates them without building it.
+Each executable type has its own base class under these two, which holds the wiring every executable of that type shares. `RpcServiceExecutable` mounts one ConnectRPC service and signs in every call. `AgentExecutable` serves the agent its `agent()` method returns. `CronExecutable`, `TasksConsumerExecutable`, and `DomainEventsListenerExecutable` hold as many cron jobs, task handlers, and subscriptions as their business area needs. Each executable class names the module schemas it needs migrated, so the runtime migrates them without building it.
 
 ### Deployables
 
@@ -138,7 +138,7 @@ A deployable is a list of the executable classes it runs, in one process. The ru
 
 ### Dependency Injection
 
-* Only the runtime creates infra: the database pool, the clock, and the sign-in service. The runtime builds each executable with it, and the executable takes only what it needs.
+* Only the runtime creates infra: the database pool, the clock, the sign-in service, and the language models. The runtime builds each executable with it, and the executable takes only what it needs.
 * The runtime is the only code that reads configuration, from environment variables.
 * All executables in a deployable share one database pool.
 
@@ -147,16 +147,25 @@ A deployable is a list of the executable classes it runs, in one process. The ru
 * Holds the technical capabilities that belong to no business module, such as the database pool and the domain-events bus.
 * It is organized by capability: `src/backend/libs/infra/<capability>/`, such as `db/` and `events/`. Each capability folder holds its interface, its provider implementations, and its transport hooks, such as interceptors.
 * A capability with business meaning is a module, not a lib. Signing users in belongs to the users module.
-* The runtime builds the users module's sign-in service, because every API needs the caller. It is the only lib that uses a module.
+* The runtime builds the users module's sign-in service, because every API and agent needs the caller, and keeps each agent's conversations in the conversations module. It is the only lib that uses modules.
 
 ### AI Agents
 
-Agents are plain Pydantic AI agents. The framework adds common tools, agent skills, and evals on top of Pydantic AI, without wrapping it.
+Agents are plain Pydantic AI agents. An agent executable returns its agent from `agent()`, and `AgentExecutable` serves it over AG-UI at `/agents/<name>`.
 
-* **Exposure:** in production, the deployable exposes each agent over the AG-UI protocol. In dev mode, it can also expose each agent through [Pydantic AI's web chat](https://pydantic.dev/docs/ai/guides/web/), which is never exposed in production.
-* **`APICall(service, method, params)` tool:** lets an agent call any ConnectRPC method with the signed-in user's credentials, so the agent has exactly the user's permissions. Agents reach modules only through RPC, never through module code directly.
-* **RPC agent skill:** Uses the `.proto` contracts. It shows the agent the available services, methods, and parameters, and how to call them with `APICall`.
-* **Evals:** every agent has a `pydantic-evals` suite from day one.
+* **Signed in like the API:** agents use the same sign-in as the RPC services, and `require_auth` decides whether anonymous callers may talk to an agent.
+* **Acts as its user:** tools call module services with the caller, so an agent can do only what its user can.
+* **Conversations live on the server:** each request carries only the user's newest message, and the agent runs on the conversation the server keeps, so a client cannot rewrite it.
+* **One message at a time:** while the agent answers, the next message is refused. A failed, stopped, or crashed run keeps the user's message, and every run is cut off after 10 minutes.
+* **Each agent picks its model** through `infra.models`. A provider without an API key stops the deployable from starting.
+* **Pydantic AI does the rest:** compaction, history trimming, and other capabilities are set on the agent.
+
+### Debug Mode
+
+`DEBUG=true` is for local runs and E2E tests, never production. With `DEBUG_USER_JWT` set, it changes exactly two things:
+
+* **The debug user:** only that token signs in, as one user named `DEBUG_USER_NAME`.
+* **A web chat for each agent:** [Pydantic AI's web chat](https://pydantic.dev/docs/ai/guides/web/), on this machine only, from `DEBUG_CHAT_PORT` up, signed in as the debug user. It keeps its history in the browser and loads its page from a CDN.
 
 ### API Design
 
@@ -187,6 +196,7 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 
 * **The real system:** every deployable runs as its own process on a fresh database, and Chrome loads the production frontend build.
 * **A debug user instead of Google:** the backend runs with `DEBUG=true` and accepts only `DEBUG_USER_JWT`. The browser starts with a Firebase session holding that token, so no test reaches the internet.
+* **Fakes of third parties:** each is a local server in `src/tests/e2e/framework/fakes/`, one per third party, serving committed responses. Agents answer from a fake Ollama, which also records what the model was told.
 * **The real clock:** time-based behavior is tested in component tests.
 
 Each feature gets its main journey, the failures that need real processes (such as a backend restart), and every RPC the frontend calls.
@@ -204,6 +214,7 @@ Ctrl+C stops both servers; Postgres keeps running until `docker compose down`.
 
 * **One settings file, committed:** `.env.development` holds the dev settings, and none is a secret. Vite reads it for the dev server, and never for a build. `make dev` passes the same file to the backend as environment variables.
 * **A dev Firebase project:** local sign-in is real Google sign-in, through a Firebase project of its own, never production's. Its public web config fills the `FIREBASE_*` values in `.env.development`. Firebase allows `localhost` by default.
+* **Secrets stay in your shell:** agents need `OLLAMA_API_KEY`, which is a secret, so it never goes in `.env.development`. Export it before `make dev`.
 * **Other Pants commands keep working:** Pants runs concurrently (`concurrent = true` in `pants.toml`), so `pants test` and `make verify` run while `make dev` does.
 
 ### Test, Dev, and Prod
@@ -218,7 +229,7 @@ Ctrl+C stops both servers; Postgres keeps running until `docker compose down`.
 | **`DEBUG`** | Not used | `true` | `false` | Never `true` |
 | **Settings** | Set by the test | Set by the test, with a made-up Firebase web config in the build | `.env.development` | Environment variables where it runs, and in the frontend's build |
 | **Clock** | `FakeTime`, moved by the test | Real | Real | Real |
-| **Third parties and LLMs** | Recorded responses, fakes, `TestModel` | Fake servers, the test model | Real, with dev accounts | Real |
+| **Third parties and LLMs** | Recorded responses, fakes, `TestModel` or `FunctionModel` | Fake servers, including a fake Ollama | Real, with dev accounts | Real |
 
 ## Tech Stack
 

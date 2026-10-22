@@ -7,26 +7,15 @@ import pytest
 from executables.users_api.tests.framework.driver import UsersDriver
 from executables.users_api.users_api import UsersApiExecutable
 from libs.testing.runtime import run_executables
-from modules.users.domain.user import User
-from modules.users.services.auth import Auth
+from libs.testing.users import fake_auth
 from modules.users.services.setup import create_auth
 from users.v1.users_connect import UsersServiceClient
-
-
-class FakeUsers:
-    """Signs in `token-<user id>`, the tokens the driver sends, in place of Firebase."""
-
-    async def from_token(self, token: str) -> User | None:
-        if not token.startswith("token-"):
-            return None
-        user_id = token.removeprefix("token-")
-        return User(id=user_id, email=f"{user_id}@example.com", display_name=user_id)
 
 
 @pytest.fixture
 async def driver(database_url: str) -> AsyncIterator[UsersDriver]:
     async with (
-        run_executables([UsersApiExecutable], database_url, auth=Auth(FakeUsers())) as running,
+        run_executables([UsersApiExecutable], database_url, auth=fake_auth()) as running,
         UsersServiceClient(f"http://127.0.0.1:{running.port}") as api,
     ):
         yield UsersDriver(api)
