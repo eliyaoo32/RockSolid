@@ -43,6 +43,7 @@ src/clients/web-app/                          # the product frontend
 src/clients/wireframe/                         # the approved look and feel
 src/tests/e2e/                         # E2E tests of the whole system
 ```
+- **Ownership Is Listed in `framework.toml`:** It lists every framework file, which only RockSolid changes, and every shared file, which projects also edit; any other file is the project's. A change that adds a framework or shared file adds it to that list.
 - **All Source Code Under `src/`:** Every package, module, and app lives under `src/`. Only repository-wide configuration, `3rdparty/`, and `docs/` sit at the root.
 - **Modules Share Only Their Domain:** A module imports another module's `domain/` (entities, value objects, IDs, and events) and nothing else. Executables and deployables use a module only through its `services/`.
 - **Libraries Are Organized by Capability:** A capability's interface, provider implementations, and interceptors live together in `src/backend/libs/infra/<capability>/`, never in a folder named after the tier that imports or creates them. A capability with business meaning, such as signing users in, is a module.

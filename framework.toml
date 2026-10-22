@@ -1,0 +1,72 @@
+# Who owns each file of a project built from RockSolid. Patterns are gitignore-style, from the
+# repository root. A file that no pattern matches belongs to the project, which alone edits it.
+
+# Changed only in RockSolid, through a RockSolid pull request, and reaching each project through
+# its next framework update. A project never edits these.
+framework = [
+  # Guidelines, skills, and the AI harnesses' settings
+  "AGENTS.md",
+  "CLAUDE.md",
+  ".agents/",
+  ".claude/",
+  ".pi/",
+  "skills-lock.json",
+  "README.md",
+  "TASKS.md",
+  "docs/guides/",
+  "docs/features/FEATURE_TEMPLATE.md",
+  "framework.toml",
+  # Tooling and the verification command
+  "Makefile",
+  "pants.ci.toml",
+  "buf.yaml",
+  "buf.gen.yaml",
+  ".github/workflows/",
+  "pnpm-workspace.yaml",
+  "compose.yaml",
+  # The backend framework: its libraries, sign-in, and the conversations agents keep
+  "src/backend/libs/",
+  "src/backend/modules/users/",
+  "src/backend/modules/conversations/",
+  "src/backend/executables/users_api/",
+  "src/protos/users/",
+  "src/backend/deployables/BUILD",
+  "src/backend/deployables/tests/",
+  # The frontends' tooling and entry points
+  "src/clients/*/vite.config.ts",
+  "src/clients/*/tsconfig*.json",
+  "src/clients/*/eslint.config.js",
+  "src/clients/*/eslint-rules/",
+  "src/clients/*/.prettierrc",
+  "src/clients/*/components.json",
+  "src/clients/*/src/main.tsx",
+  # The web app's sign-in, backend calls, configuration, and test framework
+  "src/clients/web-app/src/auth/",
+  "src/clients/web-app/src/api/",
+  "src/clients/web-app/src/config.ts",
+  "src/clients/web-app/tests/framework/",
+  # The E2E framework and the framework's own journeys
+  "src/tests/e2e/BUILD",
+  "src/tests/e2e/conftest.py",
+  "src/tests/e2e/framework/",
+  "src/tests/e2e/sign_in_test.py",
+  "src/tests/e2e/debug_user_test.py",
+]
+
+# Edited by both. A framework update merges them, as the guide's "Update a Project" says.
+shared = [
+  "3rdparty/python/requirements.txt",
+  "3rdparty/python/default.lock",
+  "3rdparty/python/BUILD",
+  "pants.toml",
+  "pyproject.toml",
+  ".gitignore",
+  ".env.development",
+  "package.json",
+  "src/clients/*/package.json",
+  "pnpm-lock.yaml",
+  "src/backend/deployables/backend/main.py",
+  "src/clients/*/src/App.tsx",
+  "src/clients/*/src/i18n/resources.ts",
+  "src/clients/wireframe/README.md",
+]

@@ -11,11 +11,7 @@ A project is a clone of RockSolid that keeps RockSolid's git history. RockSolid 
 
 ## Who Owns Which Files
 
-| Owner | Files | Edited by |
-|---|---|---|
-| Framework | `AGENTS.md` (and `CLAUDE.md`, its link), `.agents/`, `.claude/`, `.pi/`, `README.md`, `docs/guides/`, `docs/features/FEATURE_TEMPLATE.md`, `Makefile`, `buf.yaml`, `buf.gen.yaml`, `.github/workflows/`, `pnpm-workspace.yaml`, `src/backend/libs/`, `src/backend/modules/users/`, `src/backend/modules/conversations/`, `src/backend/executables/users_api/`, `src/protos/users/`; in `src/clients/web-app/` and `src/clients/wireframe/`: `vite.config.ts`, `tsconfig*.json`, `eslint.config.js`, `eslint-rules/`, `.prettierrc`, `components.json`, `main.tsx`; and `src/clients/web-app/src/{auth,api}/`, `src/clients/web-app/src/config.ts`, `src/clients/web-app/tests/framework/`, `src/tests/e2e/framework/`, `src/tests/e2e/sign_in_test.py` | RockSolid only |
-| Shared | `3rdparty/python/requirements.txt`, `3rdparty/python/default.lock`, `pants.toml`, `.gitignore`, every `package.json`, `pnpm-lock.yaml`, `src/backend/deployables/backend/main.py`, `src/clients/web-app/src/App.tsx`, `src/clients/wireframe/src/App.tsx`, both apps' `src/i18n/resources.ts`, `src/clients/wireframe/README.md` | Both. The update resolves their conflicts as described below. |
-| Project | `docs/features/<NNN>_*.md`, `src/protos/<module>/`, `src/generated/`, `src/backend/modules/<module>/`, the other `src/backend/executables/`, the rest of `src/backend/deployables/` and of `src/clients/web-app/` and `src/clients/wireframe/`, the other tests in `src/tests/e2e/` | The project only |
+[`framework.toml`](../../framework.toml) lists them. Its `framework` files change only in RockSolid, its `shared` files are edited by both and merged on each update, and every other file belongs to the project.
 
 ## Start a Project
 
