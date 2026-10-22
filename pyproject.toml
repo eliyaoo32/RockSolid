@@ -6,10 +6,7 @@ line-length = 100
 src = ["src/backend", "src/generated/python", "src/tests"]
 target-version = "py314"
 # Generated code is regenerated, never formatted or linted.
-extend-exclude = [
-  "src/generated",
-  "src/backend/libs/infra/validation/testdata/**/*_pb.py",
-]
+extend-exclude = ["src/generated"]
 force-exclude = true
 
 [tool.ruff.lint]
@@ -26,10 +23,7 @@ extend-ignore-names = ["visit_*"]
 [tool.pyright]
 typeCheckingMode = "strict"
 # Generated code is checked by its generator, not by us.
-ignore = [
-  "src/generated",
-  "src/backend/libs/infra/validation/testdata/**/*_pb.py",
-]
+ignore = ["src/generated"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -37,18 +31,9 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
 branch = true
-# Generated code is exempt, with the validation tests' generated contract. Deployable entry points
-# only wire and start the process.
-omit = [
-  "src/generated/*",
-  "src/backend/libs/infra/validation/testdata/*",
-  "src/backend/deployables/*",
-]
+# Generated code is exempt. Deployable entry points only wire and start the process.
+omit = ["src/generated/*", "src/backend/deployables/*"]
 
 [tool.coverage.report]
-omit = [
-  "src/generated/*",
-  "src/backend/libs/infra/validation/testdata/*",
-  "src/backend/deployables/*",
-]
+omit = ["src/generated/*", "src/backend/deployables/*"]
 

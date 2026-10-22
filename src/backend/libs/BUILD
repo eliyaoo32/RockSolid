@@ -65,13 +65,6 @@ __dependencies_rules__(
     ),
     # The database helpers sleep with the cron lib's wait.
     ("/infra/db/**", "./*", "//src/backend/libs/infra/cron/**", "//3rdparty/python#*", "!*"),
-    # The contract only the validation tests use is generated as packages that import each other.
-    (
-        "/infra/validation/testdata/**",
-        "//src/backend/libs/infra/validation/testdata/**",
-        "//3rdparty/python#*",
-        "!*",
-    ),
     ("/infra/**", "./*", "//src/backend/libs/infra/logs/**", "//3rdparty/python#*", "!*"),
     # Test helpers run executables through the real runtime, with the users module's sign-in.
     (
