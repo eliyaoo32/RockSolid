@@ -13,5 +13,9 @@ plugins:
   # Generates messages and service descriptors that Connect clients use; the version matches @bufbuild/protobuf.
   - remote: buf.build/bufbuild/es:v2.16.0
     out: src/generated/typescript
-    opt: target=ts
+    # Generated code is checked by its generator, not by us: buf.validate's enums are not the
+    # erasable syntax our TypeScript allows.
+    opt:
+      - target=ts
+      - ts_nocheck=true
     include_imports: true
