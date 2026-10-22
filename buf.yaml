@@ -1,6 +1,9 @@
 version: v2
 modules:
   - path: src/protos
+# protovalidate: the `buf.validate` field rules that every request is checked against.
+deps:
+  - buf.build/bufbuild/protovalidate
 lint:
   use:
     - STANDARD

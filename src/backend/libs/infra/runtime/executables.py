@@ -10,7 +10,13 @@ from datetime import datetime
 from typing import Any, ClassVar, Protocol
 
 from ag_ui.core import BaseEvent
-from connectrpc.interceptor import MetadataInterceptor
+from connectrpc.interceptor import (
+    BidiStreamInterceptor,
+    ClientStreamInterceptor,
+    MetadataInterceptor,
+    ServerStreamInterceptor,
+    UnaryInterceptor,
+)
 from pydantic import ValidationError
 from pydantic_ai import Agent
 from pydantic_ai.agent import AgentRunResult
@@ -33,6 +39,7 @@ from libs.infra.cron.cron import CronJob
 from libs.infra.events.events import Subscription
 from libs.infra.llm.models import Models
 from libs.infra.tasks.tasks import TaskHandler
+from libs.infra.validation.validation import RequestValidation
 from modules.conversations.domain.conversation import (
     MAX_RUN_TIME,
     ConversationBusyError,
@@ -46,6 +53,14 @@ type Receive = Callable[[], Awaitable[MutableMapping[str, Any]]]
 type Send = Callable[[MutableMapping[str, Any]], Awaitable[None]]
 type ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 type Migration = Callable[[AsyncEngine], Awaitable[None]]
+# Connect's `Interceptor`, with the metadata interceptor's type filled in.
+type RpcInterceptor = (
+    MetadataInterceptor[Any]
+    | UnaryInterceptor
+    | ClientStreamInterceptor
+    | ServerStreamInterceptor
+    | BidiStreamInterceptor
+)
 
 logger = logging.getLogger(__name__)
 
@@ -119,14 +134,15 @@ class RpcApplication(Protocol):
 
 
 class RpcServiceExecutable(HttpExecutable):
-    """Serves one ConnectRPC service. Every call must be signed in."""
+    """Serves one ConnectRPC service. Every call must be signed in, and every request must keep
+    its contract's `buf.validate` rules."""
 
     def __init__(self, infra: Infra) -> None:
         super().__init__(infra)
-        self._application = self.application(interceptors=[infra.auth])
+        self._application = self.application(interceptors=[infra.auth, RequestValidation()])
 
     @abstractmethod
-    def application(self, interceptors: Sequence[MetadataInterceptor[Any]]) -> RpcApplication:
+    def application(self, interceptors: Sequence[RpcInterceptor]) -> RpcApplication:
         """Builds the generated application around the service, with these interceptors."""
 
     def routes(self) -> Mapping[str, ASGIApp]:

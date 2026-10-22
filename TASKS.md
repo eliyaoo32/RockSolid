@@ -24,7 +24,7 @@
     - [x] Generate and commit ConnectRPC code with buf
     - [x] Fail verify when generated code is stale
     - [ ] Generate TypeScript client from protos
-    - [ ] Validate requests with buf.validate
+    - [x] Validate requests with buf.validate
 
 - [ ] Database
     - [ ] Add Postgres connection pool to src/backend/libs/infra

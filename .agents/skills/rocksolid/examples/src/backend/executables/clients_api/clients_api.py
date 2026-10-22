@@ -2,12 +2,10 @@
 
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from typing import Any
 from uuid import UUID
 
 from connectrpc.code import Code
 from connectrpc.errors import ConnectError
-from connectrpc.interceptor import MetadataInterceptor
 from connectrpc.request import RequestContext
 from protobuf.wkt import Timestamp
 from pydantic import ValidationError
@@ -15,7 +13,7 @@ from pydantic import ValidationError
 from clients.v1 import clients_pb as pb
 from clients.v1.clients_connect import ClientsService, ClientsServiceASGIApplication
 from libs.infra.filtering.filtering import InvalidFilterError
-from libs.infra.runtime.executables import RpcApplication, RpcServiceExecutable
+from libs.infra.runtime.executables import RpcApplication, RpcInterceptor, RpcServiceExecutable
 from modules.clients.domain.client import Client
 from modules.clients.services.clients import (
     ClientChanges,
@@ -27,7 +25,6 @@ from modules.clients.services.setup import create_client_service, migrate_schema
 from modules.users.services.auth import Auth
 
 NAME_PREFIX = "clients/"
-UPDATABLE_FIELDS = frozenset(ClientChanges.model_fields)
 
 
 class ClientsApiExecutable(RpcServiceExecutable):
@@ -35,7 +32,7 @@ class ClientsApiExecutable(RpcServiceExecutable):
 
     migrations = (migrate_schema,)
 
-    def application(self, interceptors: Sequence[MetadataInterceptor[Any]]) -> RpcApplication:
+    def application(self, interceptors: Sequence[RpcInterceptor]) -> RpcApplication:
         clients = create_client_service(self.infra.database, self.infra.now)
         return ClientsServiceASGIApplication(
             ClientsApi(clients, self.infra.auth), interceptors=interceptors
@@ -95,12 +92,8 @@ class ClientsApi(ClientsService):
     ) -> pb.UpdateClientResponse:
         user = self._auth.from_ctx(ctx)
         message = request.client or pb.Client()
-        paths = set(request.update_mask.paths if request.update_mask else [])
-        if not paths or not paths <= UPDATABLE_FIELDS:
-            raise ConnectError(
-                Code.INVALID_ARGUMENT,
-                f"update_mask must name one or more of: {', '.join(sorted(UPDATABLE_FIELDS))}.",
-            )
+        # The contract checked that the mask names only these fields.
+        paths = request.update_mask.paths if request.update_mask else []
         values = {
             "display_name": message.display_name,
             "email": message.email if message.has_field("email") else None,
@@ -142,17 +135,17 @@ def _connect_errors() -> Iterator[None]:
     except InvalidPageError:
         raise ConnectError(
             Code.INVALID_ARGUMENT,
-            "page_size must not be negative, and page_token must come from ListClients.",
+            "page_token must come from ListClients.",
         ) from None
 
 
 def _client_id(name: str) -> UUID:
-    if not name.startswith(NAME_PREFIX):
-        raise ConnectError(Code.INVALID_ARGUMENT, "name must look like clients/<id>.")
+    """The ID in a client's name, which the contract checked starts with clients/. An ID that
+    is not one of ours names no client."""
     try:
         return UUID(name.removeprefix(NAME_PREFIX))
     except ValueError:
-        raise ConnectError(Code.INVALID_ARGUMENT, "name must look like clients/<id>.") from None
+        raise ClientNotFoundError from None
 
 
 def _to_message(client: Client) -> pb.Client:

@@ -28,7 +28,7 @@ class ClientNotFoundError(Exception):
 
 
 class InvalidPageError(Exception):
-    """The page size is negative, or the page token is not one this service issued."""
+    """The page token is not one this service issued."""
 
 
 class ClientChanges(BaseModel):
@@ -58,8 +58,7 @@ class ClientService:
     async def list(
         self, owner_id: UserId, page_size: int, page_token: str, filter: str
     ) -> ClientsPage:
-        if page_size < 0:
-            raise InvalidPageError
+        """Returns up to `page_size` clients, 0 or more, the default page size for 0."""
         limit = min(page_size or DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE)
         after = _decode_page_token(page_token) if page_token else None
         # One extra row tells whether another page exists.
