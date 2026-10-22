@@ -140,8 +140,12 @@ def _connect_errors() -> Iterator[None]:
 
 
 def _client_id(name: str) -> UUID:
-    """The ID in a client's name, which the contract checked looks like clients/<id>."""
-    return UUID(name.removeprefix(NAME_PREFIX))
+    """The ID in a client's name, which the contract checked starts with clients/. An ID that
+    is not one of ours names no client."""
+    try:
+        return UUID(name.removeprefix(NAME_PREFIX))
+    except ValueError:
+        raise ClientNotFoundError from None
 
 
 def _to_message(client: Client) -> pb.Client:

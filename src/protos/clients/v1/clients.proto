@@ -41,7 +41,7 @@ message Client {
 // The request for GetClient.
 message GetClientRequest {
   // The resource name of the client, such as `clients/0f8fad5b-d9cb-469f-a165-70867728950e`.
-  string name = 1 [(buf.validate.field).string.pattern = "^clients/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"];
+  string name = 1 [(buf.validate.field).string.prefix = "clients/"];
 }
 
 // The response for GetClient.
@@ -90,9 +90,9 @@ message CreateClientResponse {
 // The request for UpdateClient.
 message UpdateClientRequest {
   option (buf.validate.message).cel = {
-    id: "client.name.format"
-    message: "client.name must look like clients/<id>"
-    expression: "this.client.name.matches('^clients/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')"
+    id: "client.name.prefix"
+    message: "client.name must start with clients/"
+    expression: "this.client.name.startsWith('clients/')"
   };
   option (buf.validate.message).cel = {
     id: "update_mask.paths"
@@ -115,7 +115,7 @@ message UpdateClientResponse {
 // The request for DeleteClient.
 message DeleteClientRequest {
   // The resource name of the client, such as `clients/0f8fad5b-d9cb-469f-a165-70867728950e`.
-  string name = 1 [(buf.validate.field).string.pattern = "^clients/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"];
+  string name = 1 [(buf.validate.field).string.prefix = "clients/"];
 }
 
 // The response for DeleteClient.

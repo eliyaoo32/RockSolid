@@ -70,14 +70,18 @@ async def test_rejects_invalid_input_and_changes_nothing(driver: ClientsDriver) 
         )
     assert await driver.get.client_names() == ["Avi Cohen"]
 
-    for bad_name in [
-        "Avi Cohen",
-        "clients/not-a-uuid",
-        "contacts/0f8fad5b-d9cb-469f-a165-70867728950e",
-    ]:
-        assert await driver.get.client(bad_name) is None
+    for outside_clients in ["Avi Cohen", "contacts/0f8fad5b-d9cb-469f-a165-70867728950e"]:
+        assert await driver.get.client(outside_clients) is None
         assert driver.get.error() == Code.INVALID_ARGUMENT
-        assert driver.get.error_message().startswith("name: does not match regex pattern")
+        assert driver.get.error_message() == "name: does not have prefix `clients/`"
+        await driver.when.update_client(outside_clients, ["email"], email="avi@example.com")
+        assert driver.get.error_message() == "client.name must start with clients/"
+    # The ID after the prefix is opaque, so one we never issued names no client.
+    assert await driver.get.client("clients/not-a-uuid") is None
+    assert driver.get.error() == Code.NOT_FOUND
+    await driver.when.delete_client("clients/not-a-uuid")
+    assert driver.get.error() == Code.NOT_FOUND
+    assert await driver.get.client_names() == ["Avi Cohen"]
 
 
 async def test_requires_a_valid_sign_in(driver: ClientsDriver) -> None:
