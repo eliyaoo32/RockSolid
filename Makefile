@@ -53,16 +53,23 @@ contracts:
 		echo "buf breaking: $(BASE) has no contracts yet, nothing to compare."; \
 	fi
 
+# The contract only the validation tests use, generated next to them by its own template.
+VALIDATION_TEST_CONTRACT = src/backend/libs/infra/validation/testdata
+
 # Fails when the committed generated code differs from what the contracts generate.
 generated:
 	@tmp=$$(mktemp -d); \
-	buf generate -o $$tmp && diff -r -x BUILD -x __pycache__ -x package.json -x node_modules $$tmp/src/generated src/generated; \
+	buf generate -o $$tmp && \
+	buf generate --template src/backend/libs/infra/validation/buf.gen.yaml -o $$tmp && \
+	diff -r -x BUILD -x __pycache__ -x package.json -x node_modules $$tmp/src/generated src/generated && \
+	diff -r -x BUILD -x __pycache__ -x '*.proto' $$tmp/$(VALIDATION_TEST_CONTRACT) $(VALIDATION_TEST_CONTRACT); \
 	status=$$?; rm -rf $$tmp; \
 	if [ $$status -ne 0 ]; then echo "Generated code is stale. Run: make generate"; fi; \
 	exit $$status
 
 generate:
 	buf generate
+	buf generate --template src/backend/libs/infra/validation/buf.gen.yaml
 
 # Runs the system locally on .env.development: Postgres in Docker, the backend, which restarts when
 # its code changes, and the frontend's dev server. Ctrl+C stops both servers; Postgres keeps running.

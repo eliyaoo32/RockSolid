@@ -7,11 +7,11 @@ from connectrpc.errors import ConnectError
 from protobuf import Message
 from protovalidate import ViolationsPb
 
-from clients.v1 import clients_pb as pb
+from libs.infra.validation.testdata.validationtest.v1 import requests_pb as pb
 from libs.infra.validation.validation import RequestValidation
 
-VALID = pb.CreateClientRequest(client=pb.Client(display_name="Avi Cohen"))
-INVALID = pb.CreateClientRequest(client=pb.Client(display_name="Avi Cohen", email="not-an-email"))
+VALID = pb.CreatePersonRequest(person=pb.Person(name="Avi Cohen"))
+INVALID = pb.CreatePersonRequest(person=pb.Person(name="Avi Cohen", email="not-an-email"))
 CTX: Any = object()
 
 
@@ -38,15 +38,14 @@ async def stream_of(*requests: Message) -> AsyncIterator[Message]:
 
 
 def test_refuses_a_request_that_breaks_its_contract_naming_each_field() -> None:
-    request = pb.CreateClientRequest(client=pb.Client(display_name="x" * 201, email="nope"))
+    request = pb.CreatePersonRequest(person=pb.Person(name="x" * 201, email="nope"))
 
     with pytest.raises(ConnectError) as refused:
         RequestValidation().check(request)
 
     assert refused.value.code == Code.INVALID_ARGUMENT
     assert refused.value.message == (
-        "client.display_name: must be at most 200 characters; "
-        "client.email: must be a valid email address"
+        "person.name: must be at most 200 characters; person.email: must be a valid email address"
     )
     (detail,) = refused.value.details
     violations = detail.value(ViolationsPb)
@@ -56,9 +55,9 @@ def test_refuses_a_request_that_breaks_its_contract_naming_each_field() -> None:
 
 def test_names_no_field_for_a_rule_on_the_whole_request() -> None:
     with pytest.raises(ConnectError) as refused:
-        RequestValidation().check(pb.CreateClientRequest(client=pb.Client()))
+        RequestValidation().check(pb.CreatePersonRequest(person=pb.Person()))
 
-    assert refused.value.message == "client.display_name is required"
+    assert refused.value.message == "person.name is required"
 
 
 async def test_passes_a_valid_unary_request_on_and_refuses_an_invalid_one() -> None:

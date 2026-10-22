@@ -1,0 +1,9 @@
+# Generates the contract only the validation tests use into testdata/, next to it, with the
+# buf.validate rules it imports, which it imports relatively. `make generate` runs it.
+version: v2
+plugins:
+  - remote: buf.build/bufbuild/py:v0.6.0
+    out: src/backend/libs/infra/validation/testdata
+    include_imports: true
+inputs:
+  - directory: src/backend/libs/infra/validation/testdata

@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package validationtest.v1;
+
+import "buf/validate/validate.proto";
+
+// A contract only the validation tests use: each rule kind the tests check a request against.
+
+// A person, with a rule on each field.
+message Person {
+  // The person's name.
+  string name = 1 [(buf.validate.field).string.max_len = 200];
+  // The person's email address.
+  optional string email = 2 [(buf.validate.field).string.email = true];
+}
+
+// A request with a rule on a field and a rule on the whole request.
+message CreatePersonRequest {
+  option (buf.validate.message).cel = {
+    id: "person.name.required"
+    message: "person.name is required"
+    expression: "this.person.name != ''"
+  };
+
+  // The person to create.
+  Person person = 1 [(buf.validate.field).required = true];
+}

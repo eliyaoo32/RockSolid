@@ -15,3 +15,6 @@ plugins:
     out: src/generated/typescript
     opt: target=ts
     include_imports: true
+# The product's contracts only; test contracts have their own templates.
+inputs:
+  - directory: src/protos
