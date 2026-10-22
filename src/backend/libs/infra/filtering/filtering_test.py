@@ -5,6 +5,7 @@ from uuid import UUID
 import pytest
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlmodel import Field, SQLModel, col
 
 from libs.infra.filtering.filtering import FilterSchema, InvalidFilterError
 
@@ -16,7 +17,7 @@ class Nickname(sa.TypeDecorator[str]):
     cache_ok = True
 
 
-metadata = sa.MetaData()
+metadata = SQLModel.metadata
 people = sa.Table(
     "people",
     metadata,
@@ -28,18 +29,24 @@ people = sa.Table(
     sa.Column("age", sa.Integer(), nullable=False),
     sa.Column("joined", sa.DateTime(timezone=True), nullable=False),
 )
-cities = sa.Table(
-    "cities",
-    metadata,
-    sa.Column("person_id", sa.Uuid(), primary_key=True),
-    sa.Column("name", sa.String(), nullable=False),
-)
+
+
+class CityRow(SQLModel, table=True):
+    """A table model, whose attributes a schema takes as they are."""
+
+    # SQLModel types __tablename__ as declared_attr, though it accepts a plain string.
+    __tablename__ = "cities"  # pyright: ignore[reportAssignmentType, reportUnknownVariableType]
+
+    person_id: UUID = Field(primary_key=True)
+    name: str
+
 
 AVI = UUID("00000000-0000-0000-0000-000000000001")
 NOA = UUID("00000000-0000-0000-0000-000000000002")
 DANA = UUID("00000000-0000-0000-0000-000000000003")
 
-# The API calls the column `last_name` "family_name", and offers a computed and a joined path.
+# The API calls the column `last_name` "family_name", and offers a computed path and a path joined
+# from a table model.
 schema = FilterSchema(
     {
         "first_name": people.c.first_name,
@@ -50,7 +57,7 @@ schema = FilterSchema(
         "age": people.c.age,
         "joined": people.c.joined,
         "id": people.c.id,
-        "city/name": cities.c.name,
+        "city/name": col(CityRow.name),
     }
 )
 
@@ -94,7 +101,7 @@ async def database(database_url: str) -> AsyncIterator[AsyncEngine]:
             ],
         )
         await connection.execute(
-            cities.insert(),
+            sa.insert(CityRow),
             [{"person_id": AVI, "name": "Haifa"}, {"person_id": NOA, "name": "Tel Aviv"}],
         )
     yield database
@@ -104,7 +111,7 @@ async def database(database_url: str) -> AsyncIterator[AsyncEngine]:
 async def matching(database: AsyncEngine, filter: str) -> list[str]:
     query = (
         sa.select(people.c.first_name)
-        .select_from(people.outerjoin(cities, cities.c.person_id == people.c.id))
+        .select_from(people.outerjoin(CityRow, col(CityRow.person_id) == people.c.id))
         .where(schema.where(filter))
         .order_by(people.c.first_name)
     )

@@ -295,6 +295,8 @@ The boilerplate will include the following skills:
 
 * filtering - The filter syntax List methods accept, and how to make a field filterable.
 
+* rocksolid - How to build each backend piece (dependencies, repositories, executables, deployables, and their tests), with a working example of each in `.agents/skills/rocksolid/examples/`, which mirrors `src/`. RockSolid's CI verifies the examples with `make verify-examples`; projects never run it.
+
 * [Emil Kowalski's skills](https://github.com/emilkowalski/skills) - UI polish and animation.
 
 * [Taste Skill](https://www.tasteskill.dev/docs) - Frontend design that doesn't look generic.

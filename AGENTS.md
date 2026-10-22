@@ -51,16 +51,10 @@ src/tests/e2e/                         # E2E tests of the whole system
 
 ## Backend
 
-### Dependencies
-- **Through Pants Only:** Add the requirement to `3rdparty/python/requirements.txt`, then run `pants generate-lockfiles`. Pants infers which code uses it. Never install with `pip` or `uv`; Pants does not read their environments or lockfiles.
-- **Our Packages Are Listed for Ruff:** `known-first-party` in `pyproject.toml` lists every top-level Python package of our own: each folder in `src/backend/` and `src/tests/`, and each module generated into `src/generated/python/`. Pants lints a few files at a time, so Ruff cannot find our packages on disk and sorts an unlisted one as third-party. A change that adds such a folder or a contract module (`src/protos/<module>/`) adds its name to the list.
-
 ### Domain and Persistence
 - **Pydantic Domain Models:** Entities, aggregates, and value objects are Pydantic models. Value objects are frozen (`frozen=True`). Entities validate every change (`validate_assignment=True`), so an entity is never invalid.
 - **The Domain Knows No Vendors:** Domain code, its comments, its test names, and its limits never mention or depend on a provider or tool, such as an auth provider, a database, an ORM, or a cloud. The domain states its own rules, and the adapter that talks to the provider maps the provider's values to the domain's. One exception, by the owner's decision: the conversations domain stores Pydantic AI's own messages (`ModelMessage`), so a conversation holds exactly what the agent was told and said.
 - **Value Objects Stay Nested:** A value object has no ID and no lifecycle, and it may carry logic. An entity holds each value object as one nested object, in the domain and in the API, never as its fields flattened into the entity. A value object used by several modules lives in `src/backend/modules/shared/domain/`.
-- **Value Objects Are Prefixed Columns:** In the database, a value object's fields are columns prefixed with the name of the entity field that holds it (`address_city`, `address_street`). The repository maps them.
-- **Repositories:** A repository's interface and its implementation both live in `repositories/`, in separate files: `<aggregate>_repository.py` for the interface and `postgres_<aggregates>.py` for a Postgres implementation. Application services import only the interface; only the module's `services/setup.py` imports an implementation. The implementation talks to a database, or to a provider's API as `firebase_users.py` does to sign users in. A database repository uses SQLModel table models (`table=True`). It converts with `model_validate` (`<Entity>.model_validate(row, from_attributes=True)` and `<Entity>Row.model_validate(entity)`), and maps by hand only the fields whose name or shape differ, such as value-object columns.
 - **Whole Aggregates:** A repository loads and saves a whole aggregate, never part of it.
 - **References by ID:** An aggregate refers to another aggregate by its ID. Table models declare no `Relationship()` across aggregates; joins exist only for reads and filters.
 - **Injected Clock:** Code never reads the current time directly. It gets a clock through injection.
@@ -70,29 +64,15 @@ src/tests/e2e/                         # E2E tests of the whole system
 - **Checks for Every Call Run in Interceptors:** Sign-in runs once per call, in the `Auth` interceptor registered on the API (`interceptors=[auth]`). Handlers call `auth.from_ctx(ctx)` for the caller and never read headers themselves. For an agent, the runtime signs in each request with the same `Auth`, and tools read the caller from their deps.
 - **Provider Code Lives With Its Capability:** A provider's implementation is a repository in the module that owns the capability (`src/backend/modules/users/repositories/firebase_users.py`), or lives in its capability's folder in `src/backend/libs/infra/`.
 
-### Executables and Deployables
-- **An Executable Is a Class:** An executable subclasses the base class of its type, such as `RpcServiceExecutable`, declares its `migrations`, and implements only what differs from other executables of its type. Wiring that every executable of a type repeats belongs in the type's base class.
-- **Cron Jobs:** A cron executable subclasses `CronExecutable` and returns its jobs from `jobs()`, each a `CronJob(schedule, function)` with a UTC cron expression such as `*/5 * * * *`. The executable alone decides its jobs; group them into executables by business area. A job never schedules itself, sleeps, or loops: the runtime's cron runner triggers it. A job that fails is logged and runs again at its next time, so a job must be safe to run again.
-- **Domain Events:** A domain event is a frozen Pydantic model in the publishing module's `domain/`, with a class-level `event_type` of the form `"<module>.<EventClassName>"`. Name it in the past tense, after the fact it records. The event log stores `event_type`, so it never changes; fields are only added, with defaults, so events already in the log still load.
-- **The Service Publishes and Queues:** Which events a change publishes and which tasks it queues is service logic, so the application service creates them and writes them itself, with `append_events` and `enqueue_tasks`. It writes them in a function it passes to the repository's `save` as `before_commit`; the repository runs that function in the save's transaction and never creates, publishes, or queues anything itself. The change, its events, and its tasks commit together or not at all. Never publish or queue after the commit: a crash between the two loses them.
-- **Listening:** A listener executable subclasses `DomainEventsListenerExecutable` and returns `Subscription(name, event_class, handler)` from `subscriptions()`. The name keeps the subscription's place in the event log, so it stays the same across releases. A handler may receive an event more than once, so it must be safe to run again. A subscription's `retry` strategy, from `src/backend/libs/infra/retry/` (`Exponential` by default, `Constant`, `Delays`, or `NO_RETRY`), says how a failing handler is retried before its event is parked. A handler raises `NonRetryableError` for a failure that trying again cannot fix, and its event is parked at once.
-- **Tasks:** A task is a frozen Pydantic model in the module's `domain/` that asks for work, with a class-level `task_type` of the form `"<module>.<TaskClassName>"`. Name it in the imperative, after the work it asks for. The queue stores `task_type`, so it never changes; fields are only added, with defaults, so tasks already in the queue still load.
-- **Recurring Tasks:** Work that recurs, such as every two hours, is a cron job that queues a task.
-- **Consuming:** A consumer executable subclasses `TasksConsumerExecutable` and returns `TaskHandler(task_class, handler)` from `handlers()`. Each task type has exactly one handler across all deployables. A handler may run a task more than once, so it must be safe to run again. A handler's `retry` strategy and `NonRetryableError` work as they do for subscriptions, and a task that stops retrying is parked.
-- **Agent Executables:** An AI agent is a class that subclasses `AgentExecutable` and has three things:
-  - `name`: the agent answers at `/agents/<name>`, and its users' conversations are stored under this name. Never rename it, or its users lose their conversations.
-  - `require_auth`: `True` when only signed-in users may talk to the agent.
-  - `agent()`: a method that builds and returns the Pydantic AI `Agent`, with its instructions and tools. It picks its model with `self.infra.models`, such as `self.infra.models.ollama(MODEL)`, where `MODEL` is a constant at the top of the file.
+### Executables
+- **Events and Tasks Commit With Their Change:** A change, the events it publishes, and the tasks it queues commit in one transaction, or not at all. Never publish or queue after the commit: a crash between the two loses them.
+- **Safe to Run Again:** A cron job, an event handler, and a task handler may each run more than once, so each must be safe to run again.
 - **Agent Tools Act as the User:** A tool gets the signed-in user's ID from `ctx.deps.signed_in_user_id()` and passes it to module services, the same way an RPC handler does. A tool never has a user ID parameter: the model fills in tool parameters, so such a parameter would let the model, or a message a user typed, act as someone else. When the model sent a value it can fix, such as an invalid filter, the tool raises `ModelRetry` with a message saying what is wrong, and the model tries again.
 - **Debug Mode Is One List:** Every effect of `DEBUG=true` is listed in the README's "Debug Mode" section. A change that adds an effect adds it there.
-- **A Deployable Is a List:** A deployable's `main.py` lists its executable classes and hands them to the runtime's `run`. It builds nothing itself.
 - **Logging:** Write logs with Python's `logging` module (`logger = logging.getLogger(__name__)`), never with `print`. The runtime turns every log line into JSON on stdout and adds the ID of the request it belongs to, so all the logs of one request can be found together.
-- **Migrate, Then Serve:** The image runs `migrate` once per release and `serve` on every replica. `serve` never migrates.
 
 ### API
 - **Soft Conflicts:** A suspicious but allowed action, such as creating a record whose email already exists in the tenant, fails by default with `FAILED_PRECONDITION` and error details that describe the conflict. The request has a `force` field. The client shows the conflict to the user and, after the user confirms, resends the request with `force` set to true, which skips only that check. A broken domain rule never accepts `force`.
-- **Filtering Goes Through `src/backend/libs/infra`:** List methods parse and translate their OData `filter` only through the filtering wrapper in `src/backend/libs/infra/filtering/`, never through the filtering library directly.
-- **Filter Schemas:** Each List method has a filter schema in its module's `repositories/`. The schema maps each filterable API path to a SQL expression: a column, a renamed column, a joined column, or a computed expression. A value that exists only in Python is not filterable.
 - **Filters Are Validated:** Every filter is checked for syntax, known paths, and value types before it runs. An invalid filter fails with `INVALID_ARGUMENT`, and the message says what is wrong and lists the filterable fields.
 
 ## Wireframe
@@ -128,23 +108,6 @@ These rules apply to the production frontend in `src/clients/web-app/`. The wire
 - **Pull Requests Name Their Blueprints:** The pull request description names each blueprint it updates, or says why none needs an update.
 
 ## Testing
-
-### Test Folders
-```
-src/backend/modules/<module>/domain/<entity>.py
-src/backend/modules/<module>/domain/<entity>_test.py          # unit test, next to its source
-src/backend/executables/<name>/tests/<feature>_test.py       # component tests, named after the feature
-src/backend/executables/<name>/tests/framework/               # this executable's drivers, fixtures, and fakes
-src/backend/libs/testing/                                     # fakes and helpers shared by several executables
-src/clients/web-app/tests/framework/                                 # the frontend's drivers, fakes, and test setup
-src/clients/web-app/src/<file>.test.tsx                              # frontend unit test, next to its source
-src/tests/e2e/<feature>_test.py                               # E2E tests, named after the feature
-src/tests/e2e/framework/                                      # the running system and the E2E driver
-src/tests/e2e/framework/fakes/<third_party>.py                # a fake server for each third party
-```
-- Drivers, fixtures, and fakes live only in `framework/` folders or `src/backend/libs/testing/`, never in test files or product code.
-- An E2E fake of a third party is a server in `src/tests/e2e/framework/fakes/`, one file named after the third party (`fakes/ollama.py`), with its committed responses in `fakes/testdata/`.
-- Only test code may import `src/backend/libs/testing/`.
 
 ### Test-Driven Development
 Every production change follows Red-Green-Refactor:
@@ -185,14 +148,6 @@ Each behavior is tested at the lowest level that can catch its bug, and each lev
 ### Test Files
 - **Feature-Named Files:** A test file is named after the feature it covers, never after a layer or an endpoint (`<feature>_test.py`, such as `import_from_spreadsheet_test.py`, never `rpc_test.py`). Group a feature's scenarios into as few files as its size allows.
 
-### Drivers
-- **Driver Pattern:** Component and E2E tests read as scenarios. A driver hides how each step is done: `driver.when.*` performs actions, and `driver.get.*` reads results.
-  ```python
-  driver.when.create_record(name="Avi", email="avi@example.com")
-  driver.when.rename_record(name="Avi Cohen")
-  assert driver.get.record().name == "Avi Cohen"
-  ```
-
 ### Required Scenarios
 - **Permissions:** Every operation that requires a permission has a component test proving that a caller without credentials gets `UNAUTHENTICATED`, a caller without the permission gets `PERMISSION_DENIED`, and no state changes.
 - **Tenant Isolation:** Every tenant-owned resource has component tests with two tenants holding identical data, proving that:
@@ -212,16 +167,4 @@ Component and E2E tests model realistic, multi-step state changes:
 
 ### Fakes and Test Infrastructure
 Only the runtime creates infra, so tests swap every external dependency the same way: by putting a fake in the `Infra` they pass to it.
-- **Production Runtime:** Tests run executables with `run_executables(...)` from `src/backend/libs/testing/runtime.py`. It runs them through the real runtime, with fakes in place of the outside world and `FakeTime` driving cron jobs and event and task retries, so the tests exercise the real wiring. An executable's fixture adds only what is its own, such as its tables and its fake sign-in.
-- **Time Moves Only When a Test Moves It:** Tests use `FakeTime` from `src/backend/libs/testing/time.py` as the clock, and move it with `advance`. Passed as a cron runner's wait (`InProcessCronRunner(time, time.wait)`), it makes a job run exactly when the test moves time past its schedule.
 - **No Sleeping:** Tests never sleep to wait for asynchronous effects. They poll with `eventually(...)`, from `src/backend/libs/testing/time.py`, until the effect appears or a timeout fails the test.
-
-| Dependency | Component tests | E2E tests |
-|---|---|---|
-| Database | Real ephemeral Postgres (testcontainers); each test starts from empty tables | Real ephemeral Postgres |
-| Other RPC services | A fake implementation of the generated service, served by a local test server | The real deployable, or the same fake |
-| Third-party HTTP APIs | Recorded responses replayed with `pytest-recording`; `respx` for one-off stubs | A fake server per third party, serving committed fixtures |
-| LLM | `TestModel` or `FunctionModel`, injected through `FakeModels` | A fake Ollama server, set as `OLLAMA_BASE_URL`, streaming a committed answer |
-| Firebase Auth | A fake token verifier, injected | The backend's debug user (`DEBUG=true`, `DEBUG_USER_JWT`), signed in through a Firebase session the test stores in the browser |
-| Time | The injected clock | The real clock; time-driven behavior is tested in component tests |
-| Events and tasks | Real, on Postgres | Real, on Postgres |

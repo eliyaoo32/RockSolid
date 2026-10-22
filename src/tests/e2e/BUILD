@@ -6,7 +6,7 @@ python_test_utils(name="test_utils")
 python_tests(
     dependencies=[
         ":frontend_build",
-        # The tests run the backend deployable as its own process, from its entry point.
+        # The tests run each deployable as its own process, from its entry point.
         "src/backend/deployables:entry_points",
         # Provides the browser fixtures; no test imports it.
         "3rdparty/python#pytest-playwright",

@@ -1,4 +1,5 @@
-"""The backend deployable: the executables it runs. Commands: `migrate` and `serve`."""
+"""The examples deployable: the example executables, which run beside the framework's `app`.
+Commands: `migrate` and `serve`."""
 
 import asyncio
 import sys
@@ -8,7 +9,6 @@ from executables.client_welcome.client_welcome import ClientWelcomeExecutable
 from executables.clients_api.clients_api import ClientsApiExecutable
 from executables.clients_assistant.clients_assistant import ClientsAssistantExecutable
 from executables.clients_digest.clients_digest import ClientsDigestExecutable
-from executables.users_api.users_api import UsersApiExecutable
 from libs.infra.runtime.runtime import run
 
 EXECUTABLES = [
@@ -17,7 +17,6 @@ EXECUTABLES = [
     ClientsDigestExecutable,
     ClientActivityExecutable,
     ClientWelcomeExecutable,
-    UsersApiExecutable,
 ]
 
 if __name__ == "__main__":
