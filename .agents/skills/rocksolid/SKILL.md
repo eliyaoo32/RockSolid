@@ -1,11 +1,18 @@
 ---
 name: rocksolid
-description: How to build each piece of the RockSolid backend, with a working example of each. Use when adding a Python dependency or a contract module, or when creating or changing a module, an entity, a repository, a migration, a domain event, a task, an executable (RPC service, AI agent, cron scheduler, tasks consumer, or domain-events listener), a deployable, or their component and E2E tests.
+description: How to build each piece of a product on RockSolid, the framework for products made of a backend and the clients that call it, with a working example of each. Use when adding a Python dependency or a contract module, or when creating or changing a module, an entity, a repository, a migration, a domain event, a task, an executable (RPC service, AI agent, cron scheduler, tasks consumer, or domain-events listener), a deployable, or their component and E2E tests.
 ---
 
 # RockSolid
 
-`README.md` ("Framework") explains what modules, executables, and deployables are and why. `AGENTS.md` holds the rules every change follows. This skill says how to build each piece, and shows it built.
+RockSolid is a framework for building a product with AI agents: a Python backend and the clients that call it, joined by ConnectRPC contracts.
+
+- **Backend:** business modules, executables (RPC services, AI agents, cron schedulers, tasks consumers, and domain-events listeners), and the deployables that run them, on shared infrastructure libraries.
+- **Clients:** the React web app in `src/clients/web-app/`, which calls the backend only through clients generated from the contracts, and the wireframe in `src/clients/wireframe/`, which holds the approved design.
+- **Contracts:** `.proto` files in `src/protos/`, from which the backend's services and every client's calls are generated.
+- **Tests and tooling:** unit, component, and E2E tests at 100% coverage, and one verification command, `make verify`.
+
+`README.md` ("Framework") explains each part and why it is built that way. `AGENTS.md` holds the rules every change follows. This skill says how to build each backend piece and its tests, and shows them built.
 
 ## Examples
 

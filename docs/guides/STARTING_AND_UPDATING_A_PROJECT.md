@@ -11,11 +11,30 @@ A project is a clone of RockSolid that keeps RockSolid's git history. RockSolid 
 
 ## Who Owns Which Files
 
-| Owner | Files | Edited by |
-|---|---|---|
-| Framework | `AGENTS.md` (and `CLAUDE.md`, its link), `.agents/`, `.claude/`, `.pi/`, `README.md`, `docs/guides/`, `docs/features/FEATURE_TEMPLATE.md`, `Makefile`, `buf.yaml`, `buf.gen.yaml`, `.github/workflows/`, `pnpm-workspace.yaml`, `src/backend/libs/`, `src/backend/modules/users/`, `src/backend/modules/conversations/`, `src/backend/deployables/BUILD`, `src/backend/deployables/tests/`, `src/backend/executables/users_api/`, `src/protos/users/`; in `src/clients/web-app/` and `src/clients/wireframe/`: `vite.config.ts`, `tsconfig*.json`, `eslint.config.js`, `eslint-rules/`, `.prettierrc`, `components.json`, `main.tsx`; and `src/clients/web-app/src/{auth,api}/`, `src/clients/web-app/src/config.ts`, `src/clients/web-app/tests/framework/`, `src/tests/e2e/framework/` (except `agents.py`, which a project with an agent copies from the `rocksolid` skill's examples), `src/tests/e2e/sign_in_test.py` | RockSolid only |
-| Shared | `3rdparty/python/requirements.txt`, `3rdparty/python/default.lock`, `pants.toml`, `pyproject.toml`, `.gitignore`, every `package.json`, `pnpm-lock.yaml`, `src/backend/deployables/app/main.py`, `src/clients/web-app/src/App.tsx`, `src/clients/wireframe/src/App.tsx`, both apps' `src/i18n/resources.ts`, `src/clients/wireframe/README.md` | Both. The update resolves their conflicts as described below. |
-| Project | `docs/features/<NNN>_*.md`, `src/protos/<module>/`, `src/generated/`, `src/backend/modules/<module>/`, the other `src/backend/executables/`, the rest of `src/backend/deployables/` and of `src/clients/web-app/` and `src/clients/wireframe/`, the other tests in `src/tests/e2e/` | The project only |
+### Framework: Edited Only in RockSolid
+- Agent guidance: `AGENTS.md` (and `CLAUDE.md`, its link), `.agents/`, `.claude/`, `.pi/`
+- Docs: `README.md`, `docs/guides/`, `docs/features/FEATURE_TEMPLATE.md`
+- Tooling: `Makefile`, `buf.yaml`, `buf.lock`, `buf.gen.yaml`, `.github/workflows/`, `pnpm-workspace.yaml`
+- Backend: `src/backend/libs/`, `src/backend/modules/users/`, `src/backend/modules/conversations/`, `src/backend/executables/users_api/`, `src/backend/deployables/BUILD`, `src/backend/deployables/tests/`, `src/protos/users/`
+- Clients: in `src/clients/web-app/` and `src/clients/wireframe/`, `vite.config.ts`, `tsconfig*.json`, `eslint.config.js`, `eslint-rules/`, `.prettierrc`, `components.json`, and `main.tsx`; and `src/clients/web-app/src/{auth,api}/`, `src/clients/web-app/src/config.ts`, `src/clients/web-app/tests/framework/`
+- E2E tests: `src/tests/e2e/framework/`, except `agents.py`, which a project with an agent copies from the `rocksolid` skill's examples; `src/tests/e2e/sign_in_test.py`, `src/tests/e2e/debug_user_test.py`
+
+### Shared: Edited by Both
+An update resolves their conflicts as described below.
+- `3rdparty/python/requirements.txt` and `3rdparty/python/default.lock`
+- `pants.toml`, `pyproject.toml`, and `.gitignore`
+- Every `package.json`, and `pnpm-lock.yaml`
+- `src/backend/deployables/app/main.py`
+- `src/clients/web-app/src/App.tsx` and `src/clients/wireframe/src/App.tsx`
+- Both apps' `src/i18n/resources.ts`
+- `src/clients/wireframe/README.md`
+
+### Project: Edited Only in the Project
+- `docs/features/<NNN>_*.md`
+- `src/protos/<module>/` and `src/generated/`
+- `src/backend/modules/<module>/`, the other `src/backend/executables/`, and the rest of `src/backend/deployables/`
+- The rest of `src/clients/web-app/` and `src/clients/wireframe/`
+- The other tests in `src/tests/e2e/`
 
 ## Start a Project
 
