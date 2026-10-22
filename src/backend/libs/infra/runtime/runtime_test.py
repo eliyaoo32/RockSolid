@@ -7,7 +7,6 @@ from typing import Any, ClassVar
 
 import httpx
 import pytest
-from connectrpc.interceptor import MetadataInterceptor
 from pydantic import BaseModel
 from pydantic_ai import Agent
 from sqlalchemy import text
@@ -26,6 +25,7 @@ from libs.infra.runtime.executables import (
     Infra,
     Receive,
     RpcApplication,
+    RpcInterceptor,
     RpcServiceExecutable,
     Scope,
     Send,
@@ -33,6 +33,7 @@ from libs.infra.runtime.executables import (
 )
 from libs.infra.runtime.runtime import Runtime, run
 from libs.infra.tasks.tasks import TaskHandler, task_type_of
+from libs.infra.validation.validation import RequestValidation
 from libs.testing.runtime import NO_MODELS
 from modules.users.services.setup import create_auth
 
@@ -166,7 +167,7 @@ class RecordingCron:
 class FakeRpcApplication:
     """Stands in for a generated ConnectRPC application."""
 
-    def __init__(self, interceptors: Sequence[MetadataInterceptor[Any]]) -> None:
+    def __init__(self, interceptors: Sequence[RpcInterceptor]) -> None:
         self.interceptors = interceptors
 
     @property
@@ -188,7 +189,7 @@ class Concierge(AgentExecutable):
 
 
 class GreetApi(RpcServiceExecutable):
-    def application(self, interceptors: Sequence[MetadataInterceptor[Any]]) -> RpcApplication:
+    def application(self, interceptors: Sequence[RpcInterceptor]) -> RpcApplication:
         return FakeRpcApplication(interceptors)
 
 
@@ -253,7 +254,9 @@ def test_signs_in_every_call_of_an_rpc_service(infra: Infra) -> None:
     application = greet.routes()["/greet.v1.GreetService"]
 
     assert isinstance(application, FakeRpcApplication)
-    assert application.interceptors == [infra.auth]
+    auth, validation = application.interceptors
+    assert auth is infra.auth
+    assert isinstance(validation, RequestValidation)
 
 
 async def test_tags_every_response_with_a_request_id(infra: Infra) -> None:

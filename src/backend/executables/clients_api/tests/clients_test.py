@@ -51,25 +51,37 @@ async def test_rejects_invalid_input_and_changes_nothing(driver: ClientsDriver) 
     assert driver.get.error() == Code.INVALID_ARGUMENT
     await driver.when.create_client("Avi Cohen", email="not-an-email")
     assert driver.get.error() == Code.INVALID_ARGUMENT
+    assert driver.get.error_message() == "client.email: must be a valid email address"
+    await driver.when.create_client("A" * 201)
+    assert driver.get.error_message() == "client.display_name: must be at most 200 characters"
+    await driver.when.create_client("")
+    assert driver.get.error_message() == "client.display_name is required"
     assert await driver.get.client_names() == []
 
     await driver.when.create_client("Avi Cohen")
     name = driver.get.last_client().name
     await driver.when.update_client(name, ["display_name"], display_name="")
     assert driver.get.error() == Code.INVALID_ARGUMENT
-    await driver.when.update_client(name, [])
-    assert driver.get.error() == Code.INVALID_ARGUMENT
-    await driver.when.update_client(name, ["create_time"])
-    assert driver.get.error() == Code.INVALID_ARGUMENT
+    for mask in [[], ["create_time"]]:
+        await driver.when.update_client(name, mask)
+        assert driver.get.error() == Code.INVALID_ARGUMENT
+        assert driver.get.error_message() == (
+            "update_mask must name one or more of: display_name, email"
+        )
     assert await driver.get.client_names() == ["Avi Cohen"]
 
-    for bad_name in [
-        "Avi Cohen",
-        "clients/not-a-uuid",
-        "contacts/0f8fad5b-d9cb-469f-a165-70867728950e",
-    ]:
-        assert await driver.get.client(bad_name) is None
+    for outside_clients in ["Avi Cohen", "contacts/0f8fad5b-d9cb-469f-a165-70867728950e"]:
+        assert await driver.get.client(outside_clients) is None
         assert driver.get.error() == Code.INVALID_ARGUMENT
+        assert driver.get.error_message() == "name: does not have prefix `clients/`"
+        await driver.when.update_client(outside_clients, ["email"], email="avi@example.com")
+        assert driver.get.error_message() == "client.name must start with clients/"
+    # The ID after the prefix is opaque, so one we never issued names no client.
+    assert await driver.get.client("clients/not-a-uuid") is None
+    assert driver.get.error() == Code.NOT_FOUND
+    await driver.when.delete_client("clients/not-a-uuid")
+    assert driver.get.error() == Code.NOT_FOUND
+    assert await driver.get.client_names() == ["Avi Cohen"]
 
 
 async def test_requires_a_valid_sign_in(driver: ClientsDriver) -> None:

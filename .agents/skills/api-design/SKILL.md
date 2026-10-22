@@ -10,7 +10,7 @@ Google AIPs decide what the API means. The Buf style guide decides how the proto
 ## Resources
 
 - **Resource-oriented design ([AIP-121](https://google.aip.dev/121)):** model the API as resources (nouns) with standard methods. Prefer a standard method over a custom one.
-- **Resource names ([AIP-122](https://google.aip.dev/122)):** every resource has a `name` field, such as `contacts/{contact}`. A child resource lives under its parent: `contacts/{contact}/notes/{note}`. Collection names are plural.
+- **Resource names ([AIP-122](https://google.aip.dev/122)):** every resource has a `name` field, such as `contacts/{contact}`. A child resource lives under its parent: `contacts/{contact}/notes/{note}`. Collection names are plural. The ID after the collection is opaque to clients: the contract checks only the prefix (`(buf.validate.field).string.prefix = "contacts/"`), and an ID that names no resource, whatever its form, gets `NOT_FOUND`.
 - **References ([AIP-124](https://google.aip.dev/124)):** a field that points to another resource holds that resource's `name`, and is named after the resource type (`company`, not `company_id`).
 - **Enums ([AIP-126](https://google.aip.dev/126)):** the zero value is `<ENUM_NAME>_UNSPECIFIED` and is never a valid choice.
 - **Server-set values ([AIP-129](https://google.aip.dev/129)):** fields the server sets, such as `create_time`, are output-only. The server ignores them on input.
@@ -40,7 +40,7 @@ Every request and response is its own message named after its method (`GetContac
 - **Standard fields ([AIP-148](https://google.aip.dev/148)):** use the standard name when one exists: `name`, `display_name`, `create_time`, `update_time`, `delete_time`, `etag`.
 - **Unset values ([AIP-149](https://google.aip.dev/149)):** mark a field `optional` when "not set" and "zero" mean different things.
 - **States ([AIP-216](https://google.aip.dev/216)):** a resource with a lifecycle has an output-only `state` enum. Only methods change it, never Update. The states match the blueprint's state diagram.
-- **Validation:** field constraints are `buf.validate` annotations, such as required fields, lengths, and formats.
+- **Validation:** field constraints are `buf.validate` annotations, such as required fields, lengths, and formats. A rule on a resource's field holds wherever the resource is sent, including an Update that leaves the field out of its mask, so a field only Create requires is required by a `(buf.validate.message).cel` rule on the Create request, as `CreateClientRequest` does. An update mask's allowed paths are a `cel` rule too.
 
 ## Patterns
 
