@@ -2,7 +2,7 @@
 
 - [-] Take inspirations and ideas from [peva3/anchor](https://github.com/peva3/anchor)
 
-- [ ] Repository foundation
+- [x] Repository foundation
     - [x] Create modules, libs, executables, deployables folders
     - [x] Run local Postgres with Docker Compose
 
@@ -12,7 +12,7 @@
     - [x] Pin the Python version and lock dependencies
     - [x] Add a Pants verify alias for all goals
     - [x] Add a Makefile verifying the backend and contracts
-    - [ ] Add the frontend checks to make verify
+    - [x] Add the frontend checks to make verify
     - [x] Write Pants visibility rules for the tiers
     - [x] Forbid ORM imports in module domain code
     - [ ] Port blueprint docs checker from EasyTivuch
@@ -23,15 +23,15 @@
     - [x] Add Buf breaking-change detection to verify
     - [x] Generate and commit ConnectRPC code with buf
     - [x] Fail verify when generated code is stale
-    - [ ] Generate TypeScript client from protos
+    - [x] Generate TypeScript client from protos
     - [ ] Validate requests with buf.validate
 
-- [ ] Database
-    - [ ] Add Postgres connection pool to src/backend/libs/infra
+- [x] Database
+    - [x] Add Postgres connection pool to src/backend/libs/infra
     - [x] Add database migrations per module
     - [x] Give each module its own database schema
 
-- [ ] Filtering
+- [x] Filtering
     - [x] Wrap odata-query in src/backend/libs/infra/filtering
     - [x] Map filterable API paths to SQL expressions
     - [x] Validate filters for syntax, paths, and types
@@ -40,7 +40,7 @@
 - [ ] Executable runtimes in src/backend/libs/infra
     - [x] Build the ConnectRPC service runtime
     - [x] Build the cron scheduler runtime
-    - [ ] TODO: run each cron job once when a deployable runs more than once
+    - [ ] TODO: run each cron job once across replicas
     - [x] Build the tasks queue on Postgres
     - [x] Build the domain events bus on Postgres
     - [ ] TODO: clean up old events in the event log
@@ -57,7 +57,7 @@
     - [ ] TODO: set up pydantic-evals suites for agents
     - [ ] TODO: run agent evals in a separate GitHub Action
 
-- [ ] Deployables
+- [x] Deployables
     - [x] Define how the bootstrapper works
     - [x] Build the generic deployable bootstrapper
     - [x] Decide how deployables load and validate configuration
@@ -65,15 +65,15 @@
     - [x] Handle graceful startup and shutdown
     - [x] Package each deployable as a Docker image
 
-- [ ] Authentication
+- [x] Authentication
     - [x] Verify Firebase JWT in RPC endpoints
     - [x] Verify Firebase JWT in AG-UI endpoints
-    - [ ] Add Firebase sign-in to the frontend
+    - [x] Add Firebase sign-in to the frontend
 
 - [ ] Frontend
-    - [ ] Scaffold React and Vite app with shadcn
-    - [ ] Scaffold the wireframe React app
-    - [ ] Call the backend through the generated client
+    - [x] Scaffold React and Vite app with shadcn
+    - [x] Scaffold the wireframe React app
+    - [x] Call the backend through the generated client
     - [ ] Choose a frontend AG-UI client library
     - [ ] Connect the frontend to agents over AG-UI
 
@@ -82,13 +82,13 @@
     - [x] Boot executables in tests with injected fakes
     - [ ] Build a fake RPC service for tests
     - [ ] Replay recorded third-party HTTP responses
-    - [ ] Build fake third-party servers for E2E
+    - [x] Build fake third-party servers for E2E
     - [x] Build a fake Firebase token verifier
     - [x] Sign E2E users in with the backend's debug user
     - [x] Answer E2E agents from a fake Ollama server
     - [x] Add an injectable clock
     - [x] Add an eventually helper for async effects
-    - [ ] Restrict src/backend/libs/testing to test code
+    - [x] Restrict src/backend/libs/testing to test code
     - [x] Set up the E2E package with Playwright
 
 - [ ] Contacts example
@@ -97,7 +97,7 @@
     - [ ] TODO: add evals to the clients assistant
 
 - [ ] AI instructions and skills (for Claude Code, Antigravity, Pi)
-    - [ ] Write AGENTS.md with structure and guidelines
+    - [x] Write AGENTS.md with structure and guidelines
     - [ ] Port harness consistency checker from EasyTivuch
     - [ ] Add a skill for writing blueprints
     - [x] Add an API design skill (AIPs and Buf)
@@ -111,7 +111,7 @@
     - [ ] Write guidelines in AGENTS.md for when to use each skill
     - [ ] Find a skill for Domain Driven Design.
 
-- [ ] Project template
-    - [ ] Decide whether to use Copier
-    - [ ] Document creating a new project from RockSolid
-    - [ ] Document updating a project to new RockSolid versions
+- [x] Project template
+    - [x] Start projects as a git clone, not Copier
+    - [x] Document creating a new project from RockSolid
+    - [x] Document updating a project to new RockSolid versions
