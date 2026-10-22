@@ -40,7 +40,7 @@ Every request and response is its own message named after its method (`GetContac
 - **Standard fields ([AIP-148](https://google.aip.dev/148)):** use the standard name when one exists: `name`, `display_name`, `create_time`, `update_time`, `delete_time`, `etag`.
 - **Unset values ([AIP-149](https://google.aip.dev/149)):** mark a field `optional` when "not set" and "zero" mean different things.
 - **States ([AIP-216](https://google.aip.dev/216)):** a resource with a lifecycle has an output-only `state` enum. Only methods change it, never Update. The states match the blueprint's state diagram.
-- **Validation:** field constraints are `buf.validate` annotations, such as required fields, lengths, and formats.
+- **Validation:** field constraints are `buf.validate` annotations, such as required fields, lengths, and formats. A rule on a resource's field holds wherever the resource is sent, including an Update that leaves the field out of its mask, so a field only Create requires is required by a `(buf.validate.message).cel` rule on the Create request, as `CreateClientRequest` does. An update mask's allowed paths and a resource name's format are `cel` and `pattern` rules too.
 
 ## Patterns
 

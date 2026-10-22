@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package clients.v1;
 
+import "buf/validate/validate.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -27,10 +28,10 @@ service ClientsService {
 message Client {
   // The resource name, such as `clients/0f8fad5b-d9cb-469f-a165-70867728950e`. Output only.
   string name = 1;
-  // The client's name, as the user calls them.
-  string display_name = 2;
+  // The client's name, as the user calls them. At most 200 characters.
+  string display_name = 2 [(buf.validate.field).string.max_len = 200];
   // The client's email address.
-  optional string email = 3;
+  optional string email = 3 [(buf.validate.field).string.email = true];
   // When the client was created. Output only.
   google.protobuf.Timestamp create_time = 4;
   // When the client last changed. Output only.
@@ -39,8 +40,8 @@ message Client {
 
 // The request for GetClient.
 message GetClientRequest {
-  // The resource name of the client.
-  string name = 1;
+  // The resource name of the client, such as `clients/0f8fad5b-d9cb-469f-a165-70867728950e`.
+  string name = 1 [(buf.validate.field).string.pattern = "^clients/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"];
 }
 
 // The response for GetClient.
@@ -52,7 +53,7 @@ message GetClientResponse {
 // The request for ListClients.
 message ListClientsRequest {
   // The most clients to return. The server uses 50 when it is 0, and at most 100.
-  int32 page_size = 1;
+  int32 page_size = 1 [(buf.validate.field).int32.gte = 0];
   // The next_page_token from a previous response, to get the next page.
   string page_token = 2;
   // An OData filter, such as `display_name eq 'Avi Cohen'`. Filterable fields: display_name,
@@ -70,8 +71,14 @@ message ListClientsResponse {
 
 // The request for CreateClient.
 message CreateClientRequest {
+  option (buf.validate.message).cel = {
+    id: "client.display_name.required"
+    message: "client.display_name is required"
+    expression: "this.client.display_name != ''"
+  };
+
   // The client to create. The server sets its name and times.
-  Client client = 1;
+  Client client = 1 [(buf.validate.field).required = true];
 }
 
 // The response for CreateClient.
@@ -82,10 +89,21 @@ message CreateClientResponse {
 
 // The request for UpdateClient.
 message UpdateClientRequest {
+  option (buf.validate.message).cel = {
+    id: "client.name.format"
+    message: "client.name must look like clients/<id>"
+    expression: "this.client.name.matches('^clients/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')"
+  };
+  option (buf.validate.message).cel = {
+    id: "update_mask.paths"
+    message: "update_mask must name one or more of: display_name, email"
+    expression: "this.update_mask.paths.size() > 0 && this.update_mask.paths.all(path, path in ['display_name', 'email'])"
+  };
+
   // The client, with name set to the client to change.
-  Client client = 1;
+  Client client = 1 [(buf.validate.field).required = true];
   // The fields to change: `display_name`, `email`, or both.
-  google.protobuf.FieldMask update_mask = 2;
+  google.protobuf.FieldMask update_mask = 2 [(buf.validate.field).required = true];
 }
 
 // The response for UpdateClient.
@@ -96,8 +114,8 @@ message UpdateClientResponse {
 
 // The request for DeleteClient.
 message DeleteClientRequest {
-  // The resource name of the client.
-  string name = 1;
+  // The resource name of the client, such as `clients/0f8fad5b-d9cb-469f-a165-70867728950e`.
+  string name = 1 [(buf.validate.field).string.pattern = "^clients/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"];
 }
 
 // The response for DeleteClient.

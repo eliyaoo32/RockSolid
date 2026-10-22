@@ -51,16 +51,23 @@ async def test_rejects_invalid_input_and_changes_nothing(driver: ClientsDriver) 
     assert driver.get.error() == Code.INVALID_ARGUMENT
     await driver.when.create_client("Avi Cohen", email="not-an-email")
     assert driver.get.error() == Code.INVALID_ARGUMENT
+    assert driver.get.error_message() == "client.email: must be a valid email address"
+    await driver.when.create_client("A" * 201)
+    assert driver.get.error_message() == "client.display_name: must be at most 200 characters"
+    await driver.when.create_client("")
+    assert driver.get.error_message() == "client.display_name is required"
     assert await driver.get.client_names() == []
 
     await driver.when.create_client("Avi Cohen")
     name = driver.get.last_client().name
     await driver.when.update_client(name, ["display_name"], display_name="")
     assert driver.get.error() == Code.INVALID_ARGUMENT
-    await driver.when.update_client(name, [])
-    assert driver.get.error() == Code.INVALID_ARGUMENT
-    await driver.when.update_client(name, ["create_time"])
-    assert driver.get.error() == Code.INVALID_ARGUMENT
+    for mask in [[], ["create_time"]]:
+        await driver.when.update_client(name, mask)
+        assert driver.get.error() == Code.INVALID_ARGUMENT
+        assert driver.get.error_message() == (
+            "update_mask must name one or more of: display_name, email"
+        )
     assert await driver.get.client_names() == ["Avi Cohen"]
 
     for bad_name in [
@@ -70,6 +77,7 @@ async def test_rejects_invalid_input_and_changes_nothing(driver: ClientsDriver) 
     ]:
         assert await driver.get.client(bad_name) is None
         assert driver.get.error() == Code.INVALID_ARGUMENT
+        assert driver.get.error_message().startswith("name: does not match regex pattern")
 
 
 async def test_requires_a_valid_sign_in(driver: ClientsDriver) -> None:

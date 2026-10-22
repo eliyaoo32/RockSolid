@@ -1,12 +1,10 @@
 """Serves the users ConnectRPC contract: who the signed-in caller is."""
 
 from collections.abc import Sequence
-from typing import Any
 
-from connectrpc.interceptor import MetadataInterceptor
 from connectrpc.request import RequestContext
 
-from libs.infra.runtime.executables import RpcApplication, RpcServiceExecutable
+from libs.infra.runtime.executables import RpcApplication, RpcInterceptor, RpcServiceExecutable
 from modules.users.services.auth import Auth
 from users.v1 import users_pb as pb
 from users.v1.users_connect import UsersService, UsersServiceASGIApplication
@@ -17,7 +15,7 @@ NAME_PREFIX = "users/"
 class UsersApiExecutable(RpcServiceExecutable):
     """Serves the users contract."""
 
-    def application(self, interceptors: Sequence[MetadataInterceptor[Any]]) -> RpcApplication:
+    def application(self, interceptors: Sequence[RpcInterceptor]) -> RpcApplication:
         return UsersServiceASGIApplication(UsersApi(self.infra.auth), interceptors=interceptors)
 
 

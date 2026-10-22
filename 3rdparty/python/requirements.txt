@@ -1,5 +1,6 @@
 # Production and test packages share one resolve. A deployable packs only the packages its own
 # code imports, so test-only ones (pytest, playwright, testcontainers) never reach production.
+ag-ui-protocol
 alembic
 asyncpg
 connectrpc
@@ -9,7 +10,9 @@ greenlet
 httpx
 odata-query
 playwright
-protobuf-py
+# The newest buf.build/bufbuild/py plugin generates code for 0.6.0; move both together.
+protobuf-py==0.6.0
+protovalidate
 pydantic-ai-slim[ag-ui,openai,web]
 pydantic-settings
 pydantic[email]
@@ -20,6 +23,7 @@ pytest-cov
 pytest-playwright
 sqlalchemy[asyncio]
 sqlmodel
+starlette
 testcontainers[postgres]
 types-croniter
 uvicorn[standard]

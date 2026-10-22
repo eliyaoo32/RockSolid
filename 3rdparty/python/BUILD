@@ -1,4 +1,8 @@
 python_requirements(
-    # protobuf-py installs the `protobuf` module, and pydantic-ai-slim the `pydantic_ai` module.
-    module_mapping={"protobuf-py": ["protobuf"], "pydantic-ai-slim": ["pydantic_ai"]},
+    # These install modules under other names: `protobuf`, `pydantic_ai`, and `ag_ui`.
+    module_mapping={
+        "protobuf-py": ["protobuf"],
+        "pydantic-ai-slim": ["pydantic_ai"],
+        "ag-ui-protocol": ["ag_ui"],
+    },
 )
