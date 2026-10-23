@@ -54,6 +54,10 @@ An update resolves their conflicts as described below.
    ```bash
    git push -u origin main
    ```
+5. Create the label the owner adds to a pull request whose breaking contract change is intended (the `rocksolid` skill, "Contracts"):
+   ```bash
+   gh label create "buf skip breaking" --description "The owner allows this pull request's breaking contract change"
+   ```
 
 GitHub's "Use this template" starts a repository with no shared history, so later merges fail. A GitHub fork is not possible into the account that owns RockSolid. A clone works in both cases.
 

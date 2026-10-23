@@ -173,7 +173,7 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 
 * **Semantics follow a subset of [Google AIPs](https://google.aip.dev):** resource-oriented design, standard methods, standard fields and states, pagination, partial updates, soft delete, optimistic concurrency, idempotent requests, and consistent errors. Long-running operations, batch methods, and similar heavy patterns are left out. The API design skill lists the exact AIPs.
 * **Form follows the [Buf style guide](https://buf.build/docs/best-practices/style-guide)**, enforced by the verification command.
-* **Contracts never break existing clients.** Breaking changes fail the verification command.
+* **Contracts never break existing clients.** Breaking changes fail the verification command, unless the owner labels the pull request `buf skip breaking` (the `rocksolid` skill, "Contracts").
 * **Requests are checked against their contract:** each `.proto` states what a request must look like with [`buf.validate`](https://buf.build/docs/protovalidate/) rules, and the runtime checks every request before the handler runs.
 * **Generated code is kept apart:** contracts live in `src/protos/`, and the code generated from them lives in `src/generated/<language>/`, one folder per language. Generated code is never edited.
 

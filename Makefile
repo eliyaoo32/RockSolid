@@ -1,6 +1,8 @@
 # `make verify` is the single verification command: a change is done only when it passes.
-# BASE is the git ref that contracts must stay compatible with.
+# BASE is the git ref that contracts must stay compatible with. BREAKING=false skips that check:
+# CI passes it for a pull request the owner labeled `buf skip breaking`.
 BASE ?= main
+BREAKING ?= true
 
 .PHONY: verify verify-examples contracts generated generate web e2e e2e-frontend dev dev-backend dev-frontend
 
@@ -47,7 +49,9 @@ web:
 contracts:
 	buf lint
 	buf format --diff --exit-code
-	@if git cat-file -e $(BASE):buf.yaml 2>/dev/null; then \
+	@if [ "$(BREAKING)" = "false" ]; then \
+		echo "buf breaking: skipped, as the pull request's 'buf skip breaking' label asks."; \
+	elif git cat-file -e $(BASE):buf.yaml 2>/dev/null; then \
 		buf breaking --against '.git#ref=$(BASE)'; \
 	else \
 		echo "buf breaking: $(BASE) has no contracts yet, nothing to compare."; \

@@ -5,6 +5,8 @@ name: verify
 
 on:
   pull_request:
+    # Adding or removing the `buf skip breaking` label runs the checks again.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   push:
     branches: [main]
 
@@ -36,7 +38,10 @@ jobs:
             "https://github.com/bufbuild/buf/releases/download/v1.66.0/buf-Linux-x86_64"
           chmod +x /usr/local/bin/buf
       # Docker is preinstalled on the runner; the component tests start Postgres with it.
-      - run: make verify BASE=origin/main
+      # The owner labels a pull request `buf skip breaking` to allow its breaking contract change.
+      - run: >-
+          make verify BASE=origin/main
+          BREAKING=${{ !contains(github.event.pull_request.labels.*.name, 'buf skip breaking') }}
       # Projects inherit this workflow; only RockSolid has its examples to verify.
       - if: github.repository == 'eliyaoo32/RockSolid'
         run: make verify-examples

@@ -10,7 +10,3 @@ lint:
 breaking:
   use:
     - FILE
-  # By the owner's decision, for the one pull request that moves the clients example out of
-  # src/protos. The next pull request removes it, so no project inherits it.
-  ignore:
-    - src/protos/clients
