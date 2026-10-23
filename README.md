@@ -100,7 +100,7 @@ src/backend/modules/<module>/
 
 * **Domain models are always valid.** Value objects are immutable, and an entity rejects any creation or change that breaks its rules. The domain knows nothing about the database.
 * **Domain services** hold business logic that spans several entities and does no I/O. **Application services** load aggregates through repositories, call the domain, save the result, and publish events.
-* **Repositories:** `repositories/` holds each repository's interface and its implementation, with a database or a provider's API. Application services depend only on the interface. A repository can store its aggregates in Postgres; the users module signs users in through Firebase. A repository loads and saves whole aggregates.
+* **Repositories:** `repositories/` holds each repository's interface and its implementation, with a database or a provider's API. Application services depend only on the interface. A repository can store its aggregates in Postgres; the users module signs users in through Firebase, and keeps what users change about themselves, such as their display name, in Postgres. A repository loads and saves whole aggregates.
 * **Aggregates reference each other by ID**, never through ORM relationships.
 * **Modules share only their domain.** A module may import another module's domain, never its services or repositories. Executables and deployables use a module only through its `services/`.
 
@@ -173,7 +173,6 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 
 * **Semantics follow a subset of [Google AIPs](https://google.aip.dev):** resource-oriented design, standard methods, standard fields and states, pagination, partial updates, soft delete, optimistic concurrency, idempotent requests, and consistent errors. Long-running operations, batch methods, and similar heavy patterns are left out. The API design skill lists the exact AIPs.
 * **Form follows the [Buf style guide](https://buf.build/docs/best-practices/style-guide)**, enforced by the verification command.
-* **Contracts never break existing clients.** Breaking changes fail the verification command.
 * **Requests are checked against their contract:** each `.proto` states what a request must look like with [`buf.validate`](https://buf.build/docs/protovalidate/) rules, and the runtime checks every request before the handler runs.
 * **Generated code is kept apart:** contracts live in `src/protos/`, and the code generated from them lives in `src/generated/<language>/`, one folder per language. Generated code is never edited.
 
@@ -295,6 +294,8 @@ The boilerplate will include the following skills:
 * api-design - How to design ConnectRPC APIs: the Google AIPs we follow, the Buf style rules, and the patterns we leave out.
 
 * filtering - The filter syntax List methods accept, and how to make a field filterable.
+
+* rocksolid - How to build each backend piece (dependencies, repositories, executables, deployables, and their tests), with a working example of each in `.agents/skills/rocksolid/examples/`, which mirrors `src/`. RockSolid's CI verifies the examples with `make verify-examples`; projects never run it.
 
 * [Emil Kowalski's skills](https://github.com/emilkowalski/skills) - UI polish and animation.
 

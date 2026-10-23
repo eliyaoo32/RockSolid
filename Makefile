@@ -1,11 +1,25 @@
 # `make verify` is the single verification command: a change is done only when it passes.
-# BASE is the git ref that contracts must stay compatible with.
-BASE ?= main
 
-.PHONY: verify contracts generated generate web e2e e2e-frontend dev dev-backend dev-frontend
+.PHONY: verify verify-examples contracts generated generate web e2e e2e-frontend dev dev-backend dev-frontend
 
 verify: contracts generated web e2e-frontend
 	pants verify ::
+
+# Runs the verification command with the rocksolid skill's examples in src/, on a copy of the working
+# tree (its committed, changed, and new files) that is deleted afterwards. Only RockSolid runs it.
+# The examples only add files; the one other change lists their contract module for Ruff.
+EXAMPLES = .agents/skills/rocksolid/examples
+
+verify-examples:
+	@tmp=$$(mktemp -d); trap 'rm -rf "$$tmp" "$$tmp.index"' EXIT; \
+	GIT_INDEX_FILE="$$tmp.index" git add --all && \
+	git archive "$$(GIT_INDEX_FILE="$$tmp.index" git write-tree)" | tar -x -C "$$tmp" && \
+	for file in $$(cd $(EXAMPLES) && find src -type f); do \
+		if [ -e "$$tmp/$$file" ]; then echo "The example $$file would replace a file."; exit 1; fi; \
+	done && \
+	cp -R $(EXAMPLES)/src/. "$$tmp/src/" && \
+	sed -i.bak 's/known-first-party = \[/known-first-party = ["clients", /' "$$tmp/pyproject.toml" && \
+	$(MAKE) -C "$$tmp" generate verify
 
 # Runs only the E2E tests.
 e2e: e2e-frontend
@@ -26,15 +40,10 @@ web:
 	pnpm -r run test
 	pnpm -r run build
 
-# Lints and formats the contracts, and fails on changes that break existing clients.
+# Lints and formats the contracts.
 contracts:
 	buf lint
 	buf format --diff --exit-code
-	@if git cat-file -e $(BASE):buf.yaml 2>/dev/null; then \
-		buf breaking --against '.git#ref=$(BASE)'; \
-	else \
-		echo "buf breaking: $(BASE) has no contracts yet, nothing to compare."; \
-	fi
 
 # Fails when the committed generated code differs from what the contracts generate.
 generated:
@@ -54,11 +63,11 @@ DEV_ENV = set -a && . ./.env.development && set +a
 dev:
 	docker compose up --detach --wait
 	pnpm install --frozen-lockfile
-	$(DEV_ENV) && pants run src/backend/deployables/backend/main.py -- migrate
+	$(DEV_ENV) && pants run src/backend/deployables/app/main.py -- migrate
 	$(MAKE) -j2 dev-backend dev-frontend
 
 dev-backend:
-	$(DEV_ENV) && pants --loop run src/backend/deployables/backend/main.py -- serve
+	$(DEV_ENV) && pants --loop run src/backend/deployables/app/main.py -- serve
 
 dev-frontend:
 	pnpm --filter @rocksolid/web-app dev

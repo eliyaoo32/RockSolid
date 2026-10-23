@@ -8,11 +8,14 @@ from __future__ import annotations
 
 from typing import Literal, NoReturn, TYPE_CHECKING, TypeAlias
 
+from buf.validate import validate_pb
 from protobuf import Message
 from protobuf._codegen import file_desc
+from protobuf.wkt.google.protobuf import field_mask_pb
 
 if TYPE_CHECKING:
     from protobuf import DescFile
+    from protobuf.wkt.google.protobuf.field_mask_pb import FieldMask
 
 
 _UserFields: TypeAlias = Literal["name", "display_name", "email"]
@@ -27,19 +30,19 @@ class User(Message[_UserFields]):
 
     Attributes:
         name:
-            The resource name, such as `users/8f3a2c`. Output only.
+            The resource name, such as `users/8f3a2c`.
 
             ```proto
             string name = 1;
             ```
         display_name:
-            The user's name, as the product shows it. Output only.
+            The user's name, as the product shows it.
 
             ```proto
             string display_name = 2;
             ```
         email:
-            The user's email address. Output only.
+            The user's email address, from their sign-in. Output only.
 
             ```proto
             string email = 3;
@@ -115,14 +118,91 @@ class GetCurrentUserResponse(Message[_GetCurrentUserResponseFields]):
 
         user: User | None
 
+_UpdateUserRequestFields: TypeAlias = Literal["user", "update_mask"]
+
+class UpdateUserRequest(Message[_UpdateUserRequestFields]):
+    """
+    The request for UpdateUser.
+
+    ```proto
+    message users.v1.UpdateUserRequest
+    ```
+
+    Attributes:
+        user:
+            The user, with name set to the caller's own name.
+
+            ```proto
+            optional users.v1.User user = 1;
+            ```
+        update_mask:
+            The fields to change: only `display_name`.
+
+            ```proto
+            optional google.protobuf.FieldMask update_mask = 2;
+            ```
+    """
+
+    __slots__ = ("user", "update_mask")
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            user: User | None = None,
+            update_mask: FieldMask | None = None,
+        ) -> None:
+            pass
+
+        user: User | None
+        update_mask: FieldMask | None
+
+_UpdateUserResponseFields: TypeAlias = Literal["user"]
+
+class UpdateUserResponse(Message[_UpdateUserResponseFields]):
+    """
+    The response for UpdateUser.
+
+    ```proto
+    message users.v1.UpdateUserResponse
+    ```
+
+    Attributes:
+        user:
+            The changed user.
+
+            ```proto
+            optional users.v1.User user = 1;
+            ```
+    """
+
+    __slots__ = ("user",)
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            user: User | None = None,
+        ) -> None:
+            pass
+
+        user: User | None
+
 
 _DESC = file_desc(
-    b'\n\x14users/v1/users.proto\x12\x08users.v1"S\n\x04User\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12!\n\x0cdisplay_name\x18\x02 \x01(\tR\x0bdisplayName\x12\x14\n\x05email\x18\x03 \x01(\tR\x05email"\x17\n\x15GetCurrentUserRequest"<\n\x16GetCurrentUserResponse\x12"\n\x04user\x18\x01 \x01(\x0b2\x0e.users.v1.UserR\x04user2h\n\x0cUsersService\x12X\n\x0eGetCurrentUser\x12\x1f.users.v1.GetCurrentUserRequest\x1a .users.v1.GetCurrentUserResponse"\x03\x90\x02\x01b\x06proto3',
-    [],
+    b'\n\x14users/v1/users.proto\x12\x08users.v1\x1a\x1bbuf/validate/validate.proto\x1a google/protobuf/field_mask.proto"k\n\x04User\x12!\n\x04name\x18\x01 \x01(\tR\x04nameB\r\xbaH\nr\x08:\x06users/\x12*\n\x0cdisplay_name\x18\x02 \x01(\tR\x0bdisplayNameB\x07\xbaH\x04r\x02\x18d\x12\x14\n\x05email\x18\x03 \x01(\tR\x05email"\x17\n\x15GetCurrentUserRequest"<\n\x16GetCurrentUserResponse\x12"\n\x04user\x18\x01 \x01(\x0b2\x0e.users.v1.UserR\x04user"\xff\x02\n\x11UpdateUserRequest\x12*\n\x04user\x18\x01 \x01(\x0b2\x0e.users.v1.UserR\x04userB\x06\xbaH\x03\xc8\x01\x01\x12C\n\x0bupdate_mask\x18\x02 \x01(\x0b2\x1a.google.protobuf.FieldMaskR\nupdateMaskB\x06\xbaH\x03\xc8\x01\x01:\xf8\x01\xbaH\xf4\x01\x1a\x96\x01\n\x11update_mask.paths\x12"update_mask must name display_name\x1a]this.update_mask.paths.size() > 0 && this.update_mask.paths.all(path, path == \'display_name\')\x1aY\n\x1auser.display_name.required\x12\x1duser.display_name is required\x1a\x1cthis.user.display_name != \'\'"8\n\x12UpdateUserResponse\x12"\n\x04user\x18\x01 \x01(\x0b2\x0e.users.v1.UserR\x04user2\xb1\x01\n\x0cUsersService\x12X\n\x0eGetCurrentUser\x12\x1f.users.v1.GetCurrentUserRequest\x1a .users.v1.GetCurrentUserResponse"\x03\x90\x02\x01\x12G\n\nUpdateUser\x12\x1b.users.v1.UpdateUserRequest\x1a\x1c.users.v1.UpdateUserResponseb\x06proto3',
+    [
+        validate_pb.desc(),
+        field_mask_pb.desc(),
+    ],
     {
         "User": User,
         "GetCurrentUserRequest": GetCurrentUserRequest,
         "GetCurrentUserResponse": GetCurrentUserResponse,
+        "UpdateUserRequest": UpdateUserRequest,
+        "UpdateUserResponse": UpdateUserResponse,
     },
 )
 

@@ -5,13 +5,19 @@ import pytest
 from connectrpc.code import Code
 from connectrpc.errors import ConnectError
 from protobuf import Message
+from protobuf.wkt import FieldMask
 from protovalidate import ViolationsPb
 
-from clients.v1 import clients_pb as pb
 from libs.infra.validation.validation import RequestValidation
+from users.v1 import users_pb as pb
 
-VALID = pb.CreateClientRequest(client=pb.Client(display_name="Avi Cohen"))
-INVALID = pb.CreateClientRequest(client=pb.Client(display_name="Avi Cohen", email="not-an-email"))
+DISPLAY_NAME = FieldMask(paths=["display_name"])
+VALID = pb.UpdateUserRequest(
+    user=pb.User(name="users/uid-dana", display_name="Dana Levi"), update_mask=DISPLAY_NAME
+)
+INVALID = pb.UpdateUserRequest(
+    user=pb.User(name="users/uid-dana", display_name="x" * 101), update_mask=DISPLAY_NAME
+)
 CTX: Any = object()
 
 
@@ -38,27 +44,31 @@ async def stream_of(*requests: Message) -> AsyncIterator[Message]:
 
 
 def test_refuses_a_request_that_breaks_its_contract_naming_each_field() -> None:
-    request = pb.CreateClientRequest(client=pb.Client(display_name="x" * 201, email="nope"))
+    request = pb.UpdateUserRequest(
+        user=pb.User(name="uid-dana", display_name="x" * 101), update_mask=DISPLAY_NAME
+    )
 
     with pytest.raises(ConnectError) as refused:
         RequestValidation().check(request)
 
     assert refused.value.code == Code.INVALID_ARGUMENT
     assert refused.value.message == (
-        "client.display_name: must be at most 200 characters; "
-        "client.email: must be a valid email address"
+        "user.name: does not have prefix `users/`; "
+        "user.display_name: must be at most 100 characters"
     )
     (detail,) = refused.value.details
     violations = detail.value(ViolationsPb)
     assert violations is not None, "the details hold the violations"
-    assert [v.rule_id for v in violations.violations] == ["string.max_len", "string.email"]
+    assert [v.rule_id for v in violations.violations] == ["string.prefix", "string.max_len"]
 
 
 def test_names_no_field_for_a_rule_on_the_whole_request() -> None:
     with pytest.raises(ConnectError) as refused:
-        RequestValidation().check(pb.CreateClientRequest(client=pb.Client()))
+        RequestValidation().check(
+            pb.UpdateUserRequest(user=pb.User(name="users/uid-dana"), update_mask=DISPLAY_NAME)
+        )
 
-    assert refused.value.message == "client.display_name is required"
+    assert refused.value.message == "user.display_name is required"
 
 
 async def test_passes_a_valid_unary_request_on_and_refuses_an_invalid_one() -> None:

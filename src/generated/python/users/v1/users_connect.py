@@ -16,7 +16,7 @@ from connectrpc.server import ConnectASGIApplication, ConnectWSGIApplication, DE
 from protobuf import DescService
 
 from . import users_pb
-from .users_pb import GetCurrentUserRequest, GetCurrentUserResponse
+from .users_pb import GetCurrentUserRequest, GetCurrentUserResponse, UpdateUserRequest, UpdateUserResponse
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, Iterable, Mapping
@@ -29,11 +29,18 @@ if TYPE_CHECKING:
 
 class UsersService(Protocol):
     """
-    Tells the signed-in caller who they are. The backend is the source of truth about users.
+    Tells the signed-in caller who they are, and lets them change how the product shows them. The
+    backend is the source of truth about users.
     """
     async def get_current_user(self, request: GetCurrentUserRequest, ctx: RequestContext[GetCurrentUserRequest, GetCurrentUserResponse], /) -> GetCurrentUserResponse:
         """
         Returns the user who makes the call.
+        """
+        raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
+
+    async def update_user(self, request: UpdateUserRequest, ctx: RequestContext[UpdateUserRequest, UpdateUserResponse], /) -> UpdateUserResponse:
+        """
+        Changes the user who makes the call. A user can change only themselves.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -65,6 +72,16 @@ class UsersServiceASGIApplication(ConnectASGIApplication[UsersService]):
                     ),
                     function=svc.get_current_user,
                 ),
+                "/users.v1.UsersService/UpdateUser": Endpoint.unary(
+                    method=MethodInfo(
+                        name="UpdateUser",
+                        service_name="users.v1.UsersService",
+                        input=UpdateUserRequest,
+                        output=UpdateUserResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=svc.update_user,
+                ),
             },
             interceptors=interceptors,
             read_max_bytes=read_max_bytes,
@@ -80,7 +97,8 @@ class UsersServiceASGIApplication(ConnectASGIApplication[UsersService]):
 
 class UsersServiceClient(ConnectClient):
     """
-    Tells the signed-in caller who they are. The backend is the source of truth about users.
+    Tells the signed-in caller who they are, and lets them change how the product shows them. The
+    backend is the source of truth about users.
     """
     async def get_current_user(
         self,
@@ -107,13 +125,43 @@ class UsersServiceClient(ConnectClient):
             use_get=use_get,
         )
 
+    async def update_user(
+        self,
+        request: UpdateUserRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None, 
+        timeout_ms: int | None = None,
+    ) -> UpdateUserResponse:
+        """
+        Changes the user who makes the call. A user can change only themselves.
+        """
+        return await self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="UpdateUser",
+                service_name="users.v1.UsersService",
+                input=UpdateUserRequest,
+                output=UpdateUserResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
+        )
+
 class UsersServiceSync(Protocol):
     """
-    Tells the signed-in caller who they are. The backend is the source of truth about users.
+    Tells the signed-in caller who they are, and lets them change how the product shows them. The
+    backend is the source of truth about users.
     """
     def get_current_user(self, request: GetCurrentUserRequest, ctx: RequestContext[GetCurrentUserRequest, GetCurrentUserResponse], /) -> GetCurrentUserResponse:
         """
         Returns the user who makes the call.
+        """
+        raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
+
+    def update_user(self, request: UpdateUserRequest, ctx: RequestContext[UpdateUserRequest, UpdateUserResponse], /) -> UpdateUserResponse:
+        """
+        Changes the user who makes the call. A user can change only themselves.
         """
         raise ConnectError(Code.UNIMPLEMENTED, 'Not implemented')
 
@@ -143,6 +191,16 @@ class UsersServiceWSGIApplication(ConnectWSGIApplication):
                     ),
                     function=service.get_current_user,
                 ),
+                "/users.v1.UsersService/UpdateUser": EndpointSync.unary(
+                    method=MethodInfo(
+                        name="UpdateUser",
+                        service_name="users.v1.UsersService",
+                        input=UpdateUserRequest,
+                        output=UpdateUserResponse,
+                        idempotency_level=IdempotencyLevel.UNKNOWN,
+                    ),
+                    function=service.update_user,
+                ),
             },
             interceptors=interceptors,
             read_max_bytes=read_max_bytes,
@@ -158,7 +216,8 @@ class UsersServiceWSGIApplication(ConnectWSGIApplication):
 
 class UsersServiceClientSync(ConnectClientSync):
     """
-    Tells the signed-in caller who they are. The backend is the source of truth about users.
+    Tells the signed-in caller who they are, and lets them change how the product shows them. The
+    backend is the source of truth about users.
     """
     def get_current_user(
         self,
@@ -183,4 +242,26 @@ class UsersServiceClientSync(ConnectClientSync):
             headers=headers,
             timeout_ms=timeout_ms,
             use_get=use_get,
+        )
+    def update_user(
+        self,
+        request: UpdateUserRequest,
+        *,
+        headers: Headers | Mapping[str, str] | None = None, 
+        timeout_ms: int | None = None,
+    ) -> UpdateUserResponse:
+        """
+        Changes the user who makes the call. A user can change only themselves.
+        """
+        return self.execute_unary(
+            request=request,
+            method=MethodInfo(
+                name="UpdateUser",
+                service_name="users.v1.UsersService",
+                input=UpdateUserRequest,
+                output=UpdateUserResponse,
+                idempotency_level=IdempotencyLevel.UNKNOWN,
+            ),
+            headers=headers,
+            timeout_ms=timeout_ms,
         )

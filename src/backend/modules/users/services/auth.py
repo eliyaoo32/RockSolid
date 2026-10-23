@@ -8,7 +8,7 @@ from connectrpc.errors import ConnectError
 from connectrpc.request import RequestContext
 
 from modules.users.domain.user import User
-from modules.users.repositories.user_repository import UserRepository
+from modules.users.repositories.user_repository import SignInProvider
 
 
 class SignInFailedError(Exception):
@@ -21,7 +21,7 @@ class Auth:
     Register it on the API (`interceptors=[auth]`), then call `auth.from_ctx(ctx)` in handlers.
     """
 
-    def __init__(self, users: UserRepository) -> None:
+    def __init__(self, users: SignInProvider) -> None:
         self._users = users
         self._callers: WeakKeyDictionary[RequestContext[Any, Any], User] = WeakKeyDictionary()
 

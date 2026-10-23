@@ -51,6 +51,7 @@ CLIENT_FILTERS = FilterSchema(
 )
 ```
 
+- Parse and translate a filter only through `FilterSchema` from `src/backend/libs/infra/filtering/`, never through the filtering library directly.
 - The schema key is the name the API uses. The value is the SQL behind it.
 - A value that exists only in Python cannot be filtered.
 - Update the `filter` field's comment in the `.proto` file to list the filterable fields.

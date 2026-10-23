@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from e2e.framework.api import talk_to_agent
+from e2e.framework.agents import talk_to_agent
 from e2e.framework.fakes.ollama import ANSWER, API_KEY
 from e2e.framework.system import DEBUG_USER_JWT, running_system
 

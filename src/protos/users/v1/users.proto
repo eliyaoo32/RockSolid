@@ -2,21 +2,27 @@ syntax = "proto3";
 
 package users.v1;
 
-// Tells the signed-in caller who they are. The backend is the source of truth about users.
+import "buf/validate/validate.proto";
+import "google/protobuf/field_mask.proto";
+
+// Tells the signed-in caller who they are, and lets them change how the product shows them. The
+// backend is the source of truth about users.
 service UsersService {
   // Returns the user who makes the call.
   rpc GetCurrentUser(GetCurrentUserRequest) returns (GetCurrentUserResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
+  // Changes the user who makes the call. A user can change only themselves.
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
 }
 
 // A person who signs in to the product.
 message User {
-  // The resource name, such as `users/8f3a2c`. Output only.
-  string name = 1;
-  // The user's name, as the product shows it. Output only.
-  string display_name = 2;
-  // The user's email address. Output only.
+  // The resource name, such as `users/8f3a2c`.
+  string name = 1 [(buf.validate.field).string.prefix = "users/"];
+  // The user's name, as the product shows it.
+  string display_name = 2 [(buf.validate.field).string.max_len = 100];
+  // The user's email address, from their sign-in. Output only.
   string email = 3;
 }
 
@@ -26,5 +32,30 @@ message GetCurrentUserRequest {}
 // The response for GetCurrentUser.
 message GetCurrentUserResponse {
   // The user who made the call.
+  User user = 1;
+}
+
+// The request for UpdateUser.
+message UpdateUserRequest {
+  option (buf.validate.message).cel = {
+    id: "update_mask.paths"
+    message: "update_mask must name display_name"
+    expression: "this.update_mask.paths.size() > 0 && this.update_mask.paths.all(path, path == 'display_name')"
+  };
+  option (buf.validate.message).cel = {
+    id: "user.display_name.required"
+    message: "user.display_name is required"
+    expression: "this.user.display_name != ''"
+  };
+
+  // The user, with name set to the caller's own name.
+  User user = 1 [(buf.validate.field).required = true];
+  // The fields to change: only `display_name`.
+  google.protobuf.FieldMask update_mask = 2 [(buf.validate.field).required = true];
+}
+
+// The response for UpdateUser.
+message UpdateUserResponse {
+  // The changed user.
   User user = 1;
 }

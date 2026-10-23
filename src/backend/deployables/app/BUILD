@@ -13,6 +13,6 @@ pex_binary(
 
 docker_image(
     name="image",
-    repository="rocksolid/backend",
+    repository="rocksolid/app",
     image_tags=["latest"],
 )
