@@ -98,7 +98,7 @@ src/backend/modules/<module>/
 ```
 
 * **Domain models are always valid.** Value objects are immutable, and an entity rejects any creation or change that breaks its rules. The domain knows nothing about the database.
-* **Domain services** hold business logic that spans several entities and does no I/O. **Application services** load aggregates through repositories, call the domain, save the result, and publish events.
+* **Domain services** hold business logic that spans several entities and does no I/O. **Application services** load aggregates through repositories, call the domain, save the result, and publish events. The service layer also defines the module's errors, in `services/errors.py`: the one place its callers learn what can go wrong.
 * **Repositories:** `repositories/` holds each repository's interface and its implementation, with a database or a provider's API. Application services depend only on the interface. A repository can store its aggregates in Postgres; the users module signs users in through Firebase, and keeps what users change about themselves, such as their display name, in Postgres. A repository loads and saves whole aggregates.
 * **Aggregates reference each other by ID**, never through ORM relationships.
 * **Modules share only their domain.** A module may import another module's domain, never its services or repositories. Executables and deployables use a module only through its `services/`.
@@ -138,7 +138,7 @@ A deployable is a list of the executable classes it runs, in one process. The ru
 ### Dependency Injection
 
 * Only the runtime creates infra: the database pool, the clock, the sign-in service, and the language models. The runtime builds each executable with it, and the executable takes only what it needs.
-* The runtime is the only code that reads configuration, from environment variables.
+* The runtime reads the infra's configuration from environment variables, and each module reads its own settings in its `services/setup.py`.
 * All executables in a deployable share one database pool.
 
 ### `src/backend/libs/infra`
@@ -195,7 +195,7 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 
 * **The real system:** every deployable runs as its own process on a fresh database, and Chrome loads the production frontend build.
 * **A debug user instead of Google:** the backend runs with `DEBUG=true` and accepts only `DEBUG_USER_JWT`. The browser starts with a Firebase session holding that token, so no test reaches the internet.
-* **Fakes of third parties:** each is a local server in `src/tests/e2e/framework/fakes/`, one per third party, serving committed responses. Agents answer from a fake Ollama, which also records what the model was told.
+* **Fakes of third parties:** each is a local server in `src/tests/e2e/framework/fakes/`, one per third party, serving committed responses. The system starts every fake there and gives every deployable the settings that point it at them. Agents answer from a fake Ollama, which also records what the model was told.
 * **The real clock:** time-based behavior is tested in component tests.
 
 Each feature gets its main journey, the failures that need real processes (such as a backend restart), and every RPC the frontend calls.

@@ -15,7 +15,6 @@ from pydantic_ai.messages import (
 from modules.conversations.domain.conversation import (
     MAX_RUN_TIME,
     Conversation,
-    ConversationBusyError,
     ConversationKey,
 )
 
@@ -76,7 +75,7 @@ def test_refuses_the_users_next_message_while_the_agent_is_answering() -> None:
     conversation = new_conversation()
     conversation.append_message(users("first"), NOW)
 
-    with pytest.raises(ConversationBusyError):
+    with pytest.raises(ValueError, match="still answering"):
         conversation.append_message(users("second"), NOW + timedelta(minutes=1))
 
     assert conversation.messages == [users("first")]

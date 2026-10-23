@@ -25,6 +25,8 @@ RockSolid is a framework for building a product with AI agents: a Python backend
 | Task | `examples/src/backend/modules/clients/domain/client_tasks.py` |
 | Repository, table model, and filter schema | `examples/src/backend/modules/clients/repositories/` |
 | Application service that publishes events and queues tasks | `examples/src/backend/modules/clients/services/clients.py`, `setup.py` |
+| The module's errors | `examples/src/backend/modules/clients/services/errors.py` |
+| Module settings, and a third party the module talks to | `ClientsSettings` in `examples/src/backend/modules/clients/services/setup.py`, `examples/src/backend/modules/clients/repositories/mail_api_clients.py`, and its fake, `examples/src/tests/e2e/framework/fakes/mail_api.py` |
 | Module schema migrations | `examples/src/backend/modules/clients/migrations/` |
 | Contract | `examples/src/protos/clients/v1/clients.proto` |
 | RPC service | `examples/src/backend/executables/clients_api/` |
@@ -45,6 +47,7 @@ RockSolid's CI verifies the examples with `make verify-examples`: it copies them
 ## Repositories
 - **Repository Files:** A repository's interface and its implementation both live in `repositories/`, in separate files: `<aggregate>_repository.py` for the interface and `postgres_<aggregates>.py` for a Postgres implementation. Application services import only the interface; only the module's `services/setup.py` imports an implementation. The implementation talks to a database, or to a provider's API as `firebase_users.py` does to sign users in. A database repository uses SQLModel table models (`table=True`). It converts with `model_validate` (`<Entity>.model_validate(row, from_attributes=True)` and `<Entity>Row.model_validate(entity)`), and maps by hand only the fields whose name or shape differ, such as value-object columns.
 - **Value Objects Are Prefixed Columns:** In the database, a value object's fields are columns prefixed with the name of the entity field that holds it (`address_city`, `address_street`). The repository maps them.
+- **Errors Live in the Service Layer:** A module's errors are defined only in its `services/errors.py`. A repository raises them from there, such as `MailNotConfiguredError` in `mail_api_clients.py`, and executables import them from there to map them to a Connect code or `NonRetryableError`. Never define an error in `domain/` or `repositories/`, and never re-export one.
 
 ## Executables
 - **An Executable Is a Class:** An executable subclasses the base class of its type, such as `RpcServiceExecutable`, declares its `migrations`, and implements only what differs from other executables of its type. Wiring that every executable of a type repeats belongs in the type's base class.
@@ -80,7 +83,7 @@ src/tests/e2e/framework/                                      # the running syst
 src/tests/e2e/framework/fakes/<third_party>.py                # a fake server for each third party
 ```
 - Drivers, fixtures, and fakes live only in `framework/` folders or `src/backend/libs/testing/`, never in test files or product code.
-- An E2E fake of a third party is a server in `src/tests/e2e/framework/fakes/`, one file named after the third party (`fakes/ollama.py`), with its committed responses in `fakes/testdata/`.
+- A fake of a third party is a server in `src/tests/e2e/framework/fakes/`, one file named after the third party (`fakes/ollama.py`), with its committed responses in `fakes/testdata/`. It exports `serve()`, which runs it and gives the settings that point the deployables at it (`environment`). The E2E system starts every fake it finds there and passes their settings to every deployable; a component test starts the fake it needs and sets its settings.
 - Only test code may import `src/backend/libs/testing/`.
 
 ### Drivers
@@ -99,7 +102,7 @@ src/tests/e2e/framework/fakes/<third_party>.py                # a fake server fo
 |---|---|---|
 | Database | Real ephemeral Postgres (testcontainers); each test starts from empty tables | Real ephemeral Postgres |
 | Other RPC services | A fake implementation of the generated service, served by a local test server | The real deployable, or the same fake |
-| Third-party HTTP APIs | Recorded responses replayed with `pytest-recording`; `respx` for one-off stubs | A fake server per third party, serving committed fixtures |
+| Third-party APIs | The fake server of the third party, with the module's settings pointing at it | The same fake server, started for every deployable |
 | LLM | `TestModel` or `FunctionModel`, injected through `FakeModels` | A fake Ollama server, set as `OLLAMA_BASE_URL`, streaming a committed answer |
 | Firebase Auth | A fake token verifier, injected | The backend's debug user (`DEBUG=true`, `DEBUG_USER_JWT`), signed in through a Firebase session the test stores in the browser |
 | Time | The injected clock | The real clock; time-driven behavior is tested in component tests |

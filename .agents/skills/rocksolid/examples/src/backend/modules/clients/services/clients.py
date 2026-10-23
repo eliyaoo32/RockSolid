@@ -16,19 +16,12 @@ from libs.infra.tasks.tasks import enqueue_tasks
 from modules.clients.domain.client import Client
 from modules.clients.domain.client_events import ClientCreated
 from modules.clients.domain.client_tasks import WelcomeClient
-from modules.clients.repositories.client_repository import ClientRepository
+from modules.clients.repositories.client_repository import ClientRepository, WelcomeMailer
+from modules.clients.services.errors import ClientNotFoundError, InvalidPageError
 from modules.users.domain.user import UserId
 
 DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 100
-
-
-class ClientNotFoundError(Exception):
-    """The owner has no client with this ID."""
-
-
-class InvalidPageError(Exception):
-    """The page token is not one this service issued."""
 
 
 class ClientChanges(BaseModel):
@@ -45,8 +38,11 @@ class ClientsPage:
 
 
 class ClientService:
-    def __init__(self, repository: ClientRepository, now: Callable[[], datetime]) -> None:
+    def __init__(
+        self, repository: ClientRepository, mailer: WelcomeMailer, now: Callable[[], datetime]
+    ) -> None:
         self._repository = repository
+        self._mailer = mailer
         self._now = now
 
     async def get(self, owner_id: UserId, client_id: UUID) -> Client:
@@ -106,6 +102,14 @@ class ClientService:
     async def delete(self, owner_id: UserId, client_id: UUID) -> None:
         if not await self._repository.delete(owner_id, client_id):
             raise ClientNotFoundError
+
+    async def welcome(self, owner_id: UserId, client_id: UUID) -> None:
+        """Sends the client the welcome email, unless the client was deleted or has no email
+        address by the time the welcome runs. Raises MailNotConfiguredError when the module's
+        settings cannot send email."""
+        client = await self._repository.get(owner_id, client_id)
+        if client is not None and client.email is not None:
+            await self._mailer.send_welcome(client, client.email)
 
 
 def _encode_page_token(create_time: datetime, client_id: UUID) -> str:

@@ -9,6 +9,8 @@ __dependencies_rules__(
         "//src/backend/modules/*/domain/**",
         "//src/generated/**",
         "//src/backend/libs/**",
+        # A third party's one fake, which E2E tests run too.
+        "//src/tests/e2e/framework/fakes/**",
         "//3rdparty/python#*",
         "!*",
     ),
@@ -19,6 +21,7 @@ __dependencies_rules__(
         "//src/backend/modules/*/domain/**",
         "//src/generated/**",
         "//src/backend/libs/**",
+        "//src/tests/e2e/framework/fakes/**",
         "//3rdparty/python#*",
         "!*",
     ),

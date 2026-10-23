@@ -25,12 +25,13 @@ __dependencies_rules__(
         "//src/backend/libs/infra/db/transaction.py",
         "!*",
     ),
-    # Repository implementations and their tests: their own folder, domains, the transaction,
-    # filtering, third parties.
+    # Repository implementations and their tests: their own folder, domains, their module's
+    # errors, the transaction, filtering, third parties.
     (
         "/*/repositories/**",
         "./*",
         "//src/backend/modules/*/domain/**",
+        "../services/errors.py",
         "//src/backend/libs/infra/db/transaction.py",
         "//src/backend/libs/infra/filtering/**",
         "//3rdparty/python#*",

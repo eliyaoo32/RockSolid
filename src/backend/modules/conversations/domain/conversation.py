@@ -23,10 +23,6 @@ MAX_RUN_TIME = timedelta(minutes=10)
 AgentName = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
 
 
-class ConversationBusyError(Exception):
-    """The agent is still answering the conversation's previous message."""
-
-
 class ConversationKey(BaseModel):
     """Identifies a conversation. The same thread under another owner, or with another agent, is
     another conversation, so a caller can neither reach nor detect anyone else's."""
@@ -72,11 +68,11 @@ class Conversation(BaseModel):
 
     def append_message(self, message: ModelMessage, now: datetime) -> None:
         """Adds a message. A user's message starts the agent's run, and is refused with
-        ConversationBusyError while the agent is answering the previous one. The agent's full
-        answer ends the run."""
+        ValueError while the agent is answering the previous one. The agent's full answer ends
+        the run."""
         if _from_the_user(message):
             if self.is_running(now):
-                raise ConversationBusyError
+                raise ValueError("the agent is still answering the previous message")
             self.run_started_at = now
         self.messages.append(message)
         self.update_time = now

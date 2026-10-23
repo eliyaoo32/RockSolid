@@ -17,7 +17,7 @@ A project is a clone of RockSolid that keeps RockSolid's git history. RockSolid 
 - Tooling: `Makefile`, `buf.yaml`, `buf.lock`, `buf.gen.yaml`, `.github/workflows/`, `pnpm-workspace.yaml`
 - Backend: `src/backend/libs/`, `src/backend/modules/users/`, `src/backend/modules/conversations/`, `src/backend/executables/users_api/`, `src/backend/deployables/BUILD`, `src/backend/deployables/tests/`, `src/protos/users/`
 - Clients: in `src/clients/web-app/` and `src/clients/wireframe/`, `vite.config.ts`, `tsconfig*.json`, `eslint.config.js`, `eslint-rules/`, `.prettierrc`, `components.json`, and `main.tsx`; and `src/clients/web-app/src/{auth,api}/`, `src/clients/web-app/src/config.ts`, `src/clients/web-app/tests/framework/`
-- E2E tests: `src/tests/e2e/framework/`, except `agents.py`, which a project with an agent copies from the `rocksolid` skill's examples; `src/tests/e2e/sign_in_test.py`, `src/tests/e2e/debug_user_test.py`
+- E2E tests: `src/tests/e2e/framework/`, except `agents.py`, which a project with an agent copies from the `rocksolid` skill's examples, and the project's own fakes in `fakes/`; `src/tests/e2e/sign_in_test.py`, `src/tests/e2e/debug_user_test.py`
 
 ### Shared: Edited by Both
 An update resolves their conflicts as described below.

@@ -15,12 +15,8 @@ from clients.v1.clients_connect import ClientsService, ClientsServiceASGIApplica
 from libs.infra.filtering.filtering import InvalidFilterError
 from libs.infra.runtime.executables import RpcApplication, RpcInterceptor, RpcServiceExecutable
 from modules.clients.domain.client import Client
-from modules.clients.services.clients import (
-    ClientChanges,
-    ClientNotFoundError,
-    ClientService,
-    InvalidPageError,
-)
+from modules.clients.services.clients import ClientChanges, ClientService
+from modules.clients.services.errors import ClientNotFoundError, InvalidPageError
 from modules.clients.services.setup import create_client_service, migrate_schema
 from modules.users.services.auth import Auth
 
