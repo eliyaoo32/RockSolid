@@ -1,6 +1,6 @@
 ---
 name: rocksolid
-description: How to build each piece of a product on RockSolid, the framework for products made of a backend and the clients that call it, with a working example of each. Use when adding a Python dependency or a contract module, or when creating or changing a module, an entity, a repository, a migration, a domain event, a task, an executable (RPC service, AI agent, cron scheduler, tasks consumer, or domain-events listener), a deployable, or their component and E2E tests.
+description: How to build each piece of a product on RockSolid, the framework for products made of a backend and the clients that call it, with a working example of each. Use for questions about RockSolid's principles, process, and design, and when adding a Python dependency or a contract module, or when creating or changing a module, an entity, a repository, a migration, a domain event, a task, an executable (RPC service, AI agent, cron scheduler, tasks consumer, or domain-events listener), a deployable, or their component and E2E tests.
 ---
 
 # RockSolid
