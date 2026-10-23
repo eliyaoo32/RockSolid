@@ -13,7 +13,7 @@ A project is a clone of RockSolid that keeps RockSolid's git history. RockSolid 
 
 ### Framework: Edited Only in RockSolid
 - Agent guidance: `AGENTS.md` (and `CLAUDE.md`, its link), `.agents/`, `.claude/`, `.pi/`
-- Docs: `README.md`, `docs/guides/`, `docs/features/FEATURE_TEMPLATE.md`
+- Docs: `docs/guides/`, `docs/features/FEATURE_TEMPLATE.md`, and RockSolid's own description in `.agents/skills/rocksolid/FRAMEWORK.md`
 - Tooling: `Makefile`, `buf.yaml`, `buf.lock`, `buf.gen.yaml`, `.github/workflows/`, `pnpm-workspace.yaml`
 - Backend: `src/backend/libs/`, `src/backend/modules/users/`, `src/backend/modules/conversations/`, `src/backend/executables/users_api/`, `src/backend/deployables/BUILD`, `src/backend/deployables/tests/`, `src/protos/users/`
 - Clients: in `src/clients/web-app/` and `src/clients/wireframe/`, `vite.config.ts`, `tsconfig*.json`, `eslint.config.js`, `eslint-rules/`, `.prettierrc`, `components.json`, and `main.tsx`; and `src/clients/web-app/src/{auth,api}/`, `src/clients/web-app/src/config.ts`, `src/clients/web-app/tests/framework/`
@@ -30,6 +30,7 @@ An update resolves their conflicts as described below.
 - `src/clients/wireframe/README.md`
 
 ### Project: Edited Only in the Project
+- `README.md`, the product's own README, which replaces RockSolid's when the project starts
 - `docs/features/<NNN>_*.md`
 - `src/protos/<module>/` and `src/generated/`
 - `src/backend/modules/<module>/`, the other `src/backend/executables/`, and the rest of `src/backend/deployables/`
@@ -54,6 +55,7 @@ An update resolves their conflicts as described below.
    ```bash
    git push -u origin main
    ```
+5. Replace `README.md` with the product's own README: what the product is, who uses it, its features with links to their blueprints, and how to run it (AGENTS.md, "The README Describes the Product"). RockSolid's description stays in `.agents/skills/rocksolid/FRAMEWORK.md`.
 
 GitHub's "Use this template" starts a repository with no shared history, so later merges fail. A GitHub fork is not possible into the account that owns RockSolid. A clone works in both cases.
 
@@ -76,6 +78,7 @@ GitHub's "Use this template" starts a repository with no shared history, so late
    - `package.json`, `main.py`, `App.tsx`, and `resources.ts`: keep the dependencies, executables, routes, and keys from both sides.
    - `pnpm-lock.yaml`: take the framework's version (`git checkout --theirs pnpm-lock.yaml`). The next step regenerates it.
    - `pants.toml`, `pyproject.toml`, and `.gitignore`: keep both sides' changes, such as both sides' packages in `known-first-party`.
+   - `README.md`: keep the project's version (`git checkout --ours README.md`). It describes the product, not RockSolid.
 4. Regenerate everything generated, whether or not it conflicted, since the merged requirements and contracts can differ from both sides:
    ```bash
    pants generate-lockfiles
