@@ -9,10 +9,7 @@ from connectrpc.request import RequestContext
 
 from modules.users.domain.user import User
 from modules.users.repositories.user_repository import SignInProvider
-
-
-class SignInFailedError(Exception):
-    """The caller sent sign-in credentials that are malformed or not valid."""
+from modules.users.services.errors import SignInFailedError
 
 
 class Auth:

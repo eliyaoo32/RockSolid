@@ -7,7 +7,7 @@ from libs.infra.retry.retry import NonRetryableError
 from libs.infra.runtime.executables import TasksConsumerExecutable
 from libs.infra.tasks.tasks import TaskHandler
 from modules.clients.domain.client_tasks import WelcomeClient
-from modules.clients.services.clients import MailNotConfiguredError
+from modules.clients.services.errors import MailNotConfiguredError
 from modules.clients.services.setup import create_client_service, migrate_schema
 
 

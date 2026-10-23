@@ -40,13 +40,11 @@ from libs.infra.events.events import Subscription
 from libs.infra.llm.models import Models
 from libs.infra.tasks.tasks import TaskHandler
 from libs.infra.validation.validation import RequestValidation
-from modules.conversations.domain.conversation import (
-    MAX_RUN_TIME,
-    ConversationBusyError,
-    ConversationKey,
-)
+from modules.conversations.domain.conversation import MAX_RUN_TIME, ConversationKey
+from modules.conversations.services.errors import ConversationBusyError
 from modules.conversations.services.setup import create_conversation_service
-from modules.users.services.auth import Auth, SignInFailedError
+from modules.users.services.auth import Auth
+from modules.users.services.errors import SignInFailedError
 
 type Scope = MutableMapping[str, Any]
 type Receive = Callable[[], Awaitable[MutableMapping[str, Any]]]

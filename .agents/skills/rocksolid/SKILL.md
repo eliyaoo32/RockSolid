@@ -25,6 +25,7 @@ RockSolid is a framework for building a product with AI agents: a Python backend
 | Task | `examples/src/backend/modules/clients/domain/client_tasks.py` |
 | Repository, table model, and filter schema | `examples/src/backend/modules/clients/repositories/` |
 | Application service that publishes events and queues tasks | `examples/src/backend/modules/clients/services/clients.py`, `setup.py` |
+| The module's errors | `examples/src/backend/modules/clients/services/errors.py` |
 | Module settings, and a third party the module talks to | `ClientsSettings` in `examples/src/backend/modules/clients/services/setup.py`, `examples/src/backend/modules/clients/repositories/mail_api_clients.py`, and its fake, `examples/src/tests/e2e/framework/fakes/mail_api.py` |
 | Module schema migrations | `examples/src/backend/modules/clients/migrations/` |
 | Contract | `examples/src/protos/clients/v1/clients.proto` |
@@ -46,6 +47,7 @@ RockSolid's CI verifies the examples with `make verify-examples`: it copies them
 ## Repositories
 - **Repository Files:** A repository's interface and its implementation both live in `repositories/`, in separate files: `<aggregate>_repository.py` for the interface and `postgres_<aggregates>.py` for a Postgres implementation. Application services import only the interface; only the module's `services/setup.py` imports an implementation. The implementation talks to a database, or to a provider's API as `firebase_users.py` does to sign users in. A database repository uses SQLModel table models (`table=True`). It converts with `model_validate` (`<Entity>.model_validate(row, from_attributes=True)` and `<Entity>Row.model_validate(entity)`), and maps by hand only the fields whose name or shape differ, such as value-object columns.
 - **Value Objects Are Prefixed Columns:** In the database, a value object's fields are columns prefixed with the name of the entity field that holds it (`address_city`, `address_street`). The repository maps them.
+- **Errors Live in the Service Layer:** A module's errors are defined only in its `services/errors.py`. A repository raises them from there, such as `MailNotConfiguredError` in `mail_api_clients.py`, and executables import them from there to map them to a Connect code or `NonRetryableError`. Never define an error in `domain/` or `repositories/`, and never re-export one.
 
 ## Executables
 - **An Executable Is a Class:** An executable subclasses the base class of its type, such as `RpcServiceExecutable`, declares its `migrations`, and implements only what differs from other executables of its type. Wiring that every executable of a type repeats belongs in the type's base class.

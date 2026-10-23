@@ -9,6 +9,7 @@ from pydantic_ai.messages import ModelMessage
 
 from modules.conversations.domain.conversation import Conversation, ConversationKey
 from modules.conversations.repositories.conversation_repository import ConversationRepository
+from modules.conversations.services.errors import ConversationBusyError
 
 
 class ConversationService:
@@ -25,6 +26,8 @@ class ConversationService:
         now = self._now()
 
         def receive(conversation: Conversation) -> list[ModelMessage]:
+            if conversation.is_running(now):
+                raise ConversationBusyError
             conversation.append_message(message, now)
             return list(conversation.messages)
 

@@ -36,10 +36,6 @@ class ClientRepository(Protocol):
         ...
 
 
-class MailNotConfiguredError(Exception):
-    """The module's settings lack what sending email needs, so no retry can send it."""
-
-
 class WelcomeMailer(Protocol):
     async def send_welcome(self, client: Client, email: str) -> None:
         """Sends the client the welcome email at `email`. Raises MailNotConfiguredError when

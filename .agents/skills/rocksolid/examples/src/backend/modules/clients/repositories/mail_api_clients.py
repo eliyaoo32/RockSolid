@@ -5,7 +5,7 @@ import httpx
 from pydantic import SecretStr
 
 from modules.clients.domain.client import Client
-from modules.clients.repositories.client_repository import MailNotConfiguredError
+from modules.clients.services.errors import MailNotConfiguredError
 
 
 class MailApiWelcomeMailer:

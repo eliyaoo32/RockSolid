@@ -17,23 +17,11 @@ from modules.clients.domain.client import Client
 from modules.clients.domain.client_events import ClientCreated
 from modules.clients.domain.client_tasks import WelcomeClient
 from modules.clients.repositories.client_repository import ClientRepository, WelcomeMailer
-
-# Re-exported: executables reach a module only through its services.
-from modules.clients.repositories.client_repository import (
-    MailNotConfiguredError as MailNotConfiguredError,
-)
+from modules.clients.services.errors import ClientNotFoundError, InvalidPageError
 from modules.users.domain.user import UserId
 
 DEFAULT_PAGE_SIZE = 50
 MAX_PAGE_SIZE = 100
-
-
-class ClientNotFoundError(Exception):
-    """The owner has no client with this ID."""
-
-
-class InvalidPageError(Exception):
-    """The page token is not one this service issued."""
 
 
 class ClientChanges(BaseModel):
