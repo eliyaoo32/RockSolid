@@ -12,7 +12,7 @@ RockSolid is a framework for building a product with AI agents: a Python backend
 - **Contracts:** `.proto` files in `src/protos/`, from which the backend's services and every client's calls are generated.
 - **Tests and tooling:** unit, component, and E2E tests at 100% coverage, and one verification command, `make verify`.
 
-`README.md` ("Framework") explains each part and why it is built that way. `AGENTS.md` holds the rules every change follows. This skill says how to build each backend piece and its tests, and shows them built.
+[`FRAMEWORK.md`](FRAMEWORK.md), next to this file, states RockSolid's principles and explains each part and why it is built that way. `AGENTS.md` holds the rules every change follows. This skill says how to build each backend piece and its tests, and shows them built.
 
 ## Examples
 

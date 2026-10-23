@@ -2,9 +2,13 @@
 
 The wireframe shows how the product looks and feels on mobile and desktop, without business logic. The owner approved every view and decision below, and the production frontend in `src/clients/web-app/` builds them exactly.
 
-> **How to fill this document.** Describe each view explicitly enough that a developer can build it without asking: its layout, components, states, colors, text, and the reason for each choice the owner made. Name the shadcn components and variants, and quote the exact text. A wireframe change updates this document in the same change, so it always describes the wireframe as it is today. Delete every line that starts with `>`.
+> **How to fill this document.** Describe each view explicitly enough that a developer can build it without asking: its layout, components, states, colors, text, and the reason for each choice the owner made. Name the shadcn components and variants, and quote the exact text. When the owner rejects or removes something, say so in one line where it applies, with the reason, so no one adds it back; record decisions, never the attempts before them. A wireframe change updates this document in the same change, so it always describes the wireframe as it is today. Delete every line that starts with `>`.
 
 Run it with `pnpm --filter @rocksolid/wireframe dev`.
+
+## Design Guidelines
+
+> The guidelines the owner states for the whole product, one line each with its reason, such as "One primary action per screen: the user always knows what to do next." Every view follows them.
 
 ## Global Decisions
 
