@@ -42,14 +42,28 @@ __dependencies_rules__(
         "!*",
     ),
     # The event bus and the task queue reuse the cron lib's wait, the database helpers, and the
-    # retry strategies, and keep their migrations next to them.
+    # retry strategies, and keep their migrations next to them. The task queue also publishes the
+    # event of each task its handler rejects.
     (
-        ("/infra/events/**", "/infra/tasks/**"),
+        "/infra/events/**",
         "./*",
         "./migrations",
         "./migrations/**",
         "//src/backend/libs/infra/cron/**",
         "//src/backend/libs/infra/db/**",
+        "//src/backend/libs/infra/logs/**",
+        "//src/backend/libs/infra/retry/**",
+        "//3rdparty/python#*",
+        "!*",
+    ),
+    (
+        "/infra/tasks/**",
+        "./*",
+        "./migrations",
+        "./migrations/**",
+        "//src/backend/libs/infra/cron/**",
+        "//src/backend/libs/infra/db/**",
+        "//src/backend/libs/infra/events/**",
         "//src/backend/libs/infra/logs/**",
         "//src/backend/libs/infra/retry/**",
         "//3rdparty/python#*",
