@@ -48,6 +48,13 @@ RockSolid is a framework for building a product with AI agents: a Python backend
 * **Zero Synchronous Write Coupling:** Domains publish events about what occurred; they never orchestrate or reach into other domains' write pipelines.
 * **Isolated Failure Domains:** A failure in an event subscriber must never block or roll back the publishing domain's core state transaction.
 
+### Parallel Features by Independent Agents
+
+* **One Feature, One Agent:** Each feature is built by its own AI agent, on its own branch, from its own approved blueprint, so several features are built at the same time.
+* **Independent Modules Make It Safe:** A feature owns its module, its contracts, its executables, and its screens. Modules share only their domains and talk through contracts and events, so agents building different features work in different files.
+* **Contracts First, Then Fan Out:** The blueprints and `.proto` contracts of the features built together are approved before their agents start. A feature that calls another feature's API builds against that approved contract, with fakes in its tests, while the other agent implements it.
+* **Shared Files Only Grow:** The few files every feature touches, such as the deployable's list of executables, the routes, the translation keys, and the Python requirements, only gain lines, so parallel branches merge with small, mechanical conflicts.
+
 ### Composable 4-Tier Layer Hierarchy
 
 * **Strict 4-Tier Architecture:** The codebase is partitioned into Business Modules (`src/backend/modules/`), Infrastructure Libraries (`src/backend/libs/`), Executable Elements (`src/backend/executables/`), and Deployables (`src/backend/deployables/`).
