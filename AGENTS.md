@@ -49,6 +49,13 @@ src/tests/e2e/                         # E2E tests of the whole system
 - **Shared Domain Holds Only Value Objects and Enums:** `src/backend/modules/shared/domain/` never holds entities, services, or repositories.
 - **Executables Are Named After Their Job:** An executable's folder name says what it does, such as `<module>_api` for a module's RPC service or `<module>_assistant` for its AI agent, never only its type.
 
+## Commands
+- `make dev` runs the whole system on this machine: Postgres in Docker, the backend, and the frontend, both restarting when their code changes.
+- `make verify` runs every check. A change is done only when it passes.
+- `make e2e` runs only the E2E tests.
+- `make generate` regenerates the code from the contracts.
+- `make verify-examples` runs `make verify` with the `rocksolid` skill's examples in place. Only RockSolid runs it.
+
 ## Backend
 
 ### Domain and Persistence
@@ -109,7 +116,7 @@ These rules apply to the production frontend in `src/clients/web-app/`. The wire
 ## Blueprints
 - **Behavior Changes Update the Blueprint:** A change that alters a feature's behavior, domain model, operations, flows, or decisions updates that feature's blueprint in the same pull request.
 - **Owner Changes Are Recorded:** When the owner changes a decision, record it in the blueprint's Decisions table as Owner, and update every section it affects.
-- **The README Describes the Product:** `README.md` says what the product is, who uses it, each of its features with a link to its blueprint, and how to run it (`make dev`, `make verify`). A pull request that adds or changes a feature updates it. RockSolid's own principles and design live in `.agents/skills/rocksolid/FRAMEWORK.md`.
+- **The README Describes the Product:** `README.md` holds only what is specific to the product: what it is and who uses it, its domain (the main concepts and their rules), its architecture (the modules, executables, and deployables it adds, and how they work together), and the decisions made for it, each feature linking to its blueprint. Commands and implementation guidelines live in `AGENTS.md`, and RockSolid's own principles and design in `.agents/skills/rocksolid/FRAMEWORK.md`. A pull request that changes the product's domain, architecture, or decisions updates the README.
 - **Pull Requests Name Their Blueprints:** The pull request description names each blueprint it updates, or says why none needs an update.
 
 ## Testing

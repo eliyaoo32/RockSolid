@@ -262,9 +262,9 @@ Ctrl+C stops both servers; Postgres keeps running until `docker compose down`.
 
 ### Where Guidelines Live
 
-* **`README.md`** describes the product the repository builds (AGENTS.md, "The README Describes the Product").
+* **`README.md`** holds the product's domain, architecture, and decisions, and nothing else (AGENTS.md, "The README Describes the Product").
 * **`.agents/skills/rocksolid/FRAMEWORK.md`**, this file, states RockSolid's principles and describes the framework.
-* **`AGENTS.md`** holds the concrete rules that apply to every task.
+* **`AGENTS.md`** holds the concrete rules that apply to every task, and the commands.
 * **Skills** hold the detail that only some tasks need. Each skill declares when it is used, so nothing has to point to it.
 * **`docs/guides/`** holds the steps for a recurring job that people run, such as starting a project.
 * **A rule that a tool enforces is not written down.** The tool is the rule.

@@ -55,7 +55,7 @@ An update resolves their conflicts as described below.
    ```bash
    git push -u origin main
    ```
-5. Replace `README.md` with the product's own README: what the product is, who uses it, its features with links to their blueprints, and how to run it (AGENTS.md, "The README Describes the Product"). RockSolid's description stays in `.agents/skills/rocksolid/FRAMEWORK.md`.
+5. Replace `README.md` with the product's own README: what the product is and who uses it, its domain, its architecture, and the decisions made for it (AGENTS.md, "The README Describes the Product"). RockSolid's description stays in `.agents/skills/rocksolid/FRAMEWORK.md`.
 
 GitHub's "Use this template" starts a repository with no shared history, so later merges fail. A GitHub fork is not possible into the account that owns RockSolid. A clone works in both cases.
 
