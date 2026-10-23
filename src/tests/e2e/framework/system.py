@@ -1,18 +1,20 @@
 """Runs the whole system for E2E tests, each part the way it runs in production: every backend
 deployable as its own process on one fresh database, and the production frontend build in a
 real browser. The deployables run in debug mode, so the debug user signs in, a fake stands in
-for the one Firebase Auth call the browser makes, and a fake Ollama answers every agent. No
-request leaves the machine."""
+for the one Firebase Auth call the browser makes, and every fake in `fakes/`, such as the fake
+Ollama that answers every agent, stands in for its third party. No request leaves the machine."""
 
 import asyncio
+import importlib
 import os
 import socket
 import subprocess
 import sys
-from collections.abc import Coroutine, Iterator, Sequence
+from collections.abc import Callable, Coroutine, Iterator, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, ExitStack, contextmanager
 from pathlib import Path
+from typing import Protocol
 from urllib.parse import urlsplit
 from uuid import uuid4
 
@@ -21,7 +23,7 @@ from playwright.sync_api import BrowserContext, Route
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from e2e.framework.fakes.ollama import API_KEY, FakeOllama, running_fake_ollama
+from e2e.framework.fakes.ollama import FakeOllama
 from libs.infra.runtime.executables import Executable
 from libs.testing.deployables import every_deployable, http_routes
 from libs.testing.time import eventually
@@ -41,7 +43,27 @@ FIREBASE_API_KEY = "e2e-api-key"
 # The frontend's origin in the browser. It never reaches DNS: the browser context answers it.
 APP_ORIGIN = "http://app.test"
 FRONTEND_BUILD = Path("src/tests/e2e/frontend-build")
+FAKES = Path(__file__).parent / "fakes"
 STARTUP_TIMEOUT = 30
+
+
+class Fake(Protocol):
+    """A running fake of a third party."""
+
+    @property
+    def environment(self) -> Mapping[str, str]:
+        """The settings that point the deployables at this fake, such as `OLLAMA_BASE_URL`."""
+        ...
+
+
+def every_fake() -> list[Callable[[], AbstractContextManager[Fake]]]:
+    """The `serve` of each fake, which runs it. A fake is a module in `fakes/` that is not a test,
+    so a project's fake is found without being listed anywhere."""
+    return [
+        importlib.import_module(f"e2e.framework.fakes.{path.stem}").serve
+        for path in sorted(FAKES.glob("*.py"))
+        if not path.stem.endswith("_test")
+    ]
 
 
 def _run[T](coroutine: Coroutine[object, object, T]) -> T:
@@ -79,25 +101,27 @@ class Deployable:
         executables: Sequence[type[Executable]],
         database_url: str,
         debug: str | None,
-        ollama: FakeOllama,
+        fakes: Mapping[str, str],
     ) -> None:
         self.name = name
         self.routes = http_routes(executables)
         port = _free_port()
         self.url = f"http://127.0.0.1:{port}"
-        self._environment = {
-            # The test's own interpreter and dependencies run the deployable.
-            "PYTHONPATH": os.pathsep.join(sys.path),
-            "DATABASE_URL": database_url,
-            "FIREBASE_PROJECT_ID": "rocksolid-e2e",
-            "DEBUG_USER_JWT": DEBUG_USER_JWT,
-            "DEBUG_USER_NAME": DEBUG_USER_NAME,
-            # Each agent's debug chat takes a free port, so tests running at once never collide.
-            "DEBUG_CHAT_PORT": "0",
-            "OLLAMA_BASE_URL": ollama.url,
-            "OLLAMA_API_KEY": API_KEY,
-            "PORT": str(port),
-        } | ({} if debug is None else {"DEBUG": debug})
+        self._environment = (
+            {
+                # The test's own interpreter and dependencies run the deployable.
+                "PYTHONPATH": os.pathsep.join(sys.path),
+                "DATABASE_URL": database_url,
+                "FIREBASE_PROJECT_ID": "rocksolid-e2e",
+                "DEBUG_USER_JWT": DEBUG_USER_JWT,
+                "DEBUG_USER_NAME": DEBUG_USER_NAME,
+                # Each agent's debug chat takes a free port, so tests running at once never collide.
+                "DEBUG_CHAT_PORT": "0",
+                "PORT": str(port),
+            }
+            | dict(fakes)
+            | ({} if debug is None else {"DEBUG": debug})
+        )
 
     def _command(self, command: str) -> list[str]:
         return [sys.executable, "-m", f"deployables.{self.name}.main", command]
@@ -117,10 +141,15 @@ class Deployable:
 class System:
     """Every deployable, running together on one database."""
 
-    def __init__(self, deployables: Sequence[Deployable], ollama: FakeOllama) -> None:
+    def __init__(self, deployables: Sequence[Deployable], fakes: Sequence[Fake]) -> None:
         self.deployables = deployables
+        self.fakes = fakes
         # What every agent's model answered, and what it was told.
-        self.ollama = ollama
+        self.ollama = self.fake(FakeOllama)
+
+    def fake[T](self, kind: type[T]) -> T:
+        """The running fake of this type, such as `system.fake(FakeOllama)`."""
+        return next(fake for fake in self.fakes if isinstance(fake, kind))
 
     def serving(self, path: str) -> Deployable | None:
         """The deployable that answers `path`, or None when no deployable does."""
@@ -154,13 +183,15 @@ def running_system(server_url: str, debug: str | None = "true") -> Iterator[Syst
     block ends. `debug` is their `DEBUG` setting, or None to leave it unset; the debug user is
     always set."""
     database_url = _run(_create_database(server_url))
-    with running_fake_ollama() as ollama:
+    with ExitStack() as running:
+        fakes = [running.enter_context(serve()) for serve in every_fake()]
+        environment = {name: value for fake in fakes for name, value in fake.environment.items()}
         system = System(
             [
-                Deployable(name, executables, database_url, debug, ollama)
+                Deployable(name, executables, database_url, debug, environment)
                 for name, executables in every_deployable().items()
             ],
-            ollama,
+            fakes,
         )
         for deployable in system.deployables:
             deployable.migrate()

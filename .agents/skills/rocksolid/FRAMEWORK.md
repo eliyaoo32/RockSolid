@@ -138,7 +138,7 @@ A deployable is a list of the executable classes it runs, in one process. The ru
 ### Dependency Injection
 
 * Only the runtime creates infra: the database pool, the clock, the sign-in service, and the language models. The runtime builds each executable with it, and the executable takes only what it needs.
-* The runtime is the only code that reads configuration, from environment variables.
+* The runtime reads the infra's configuration from environment variables, and each module reads its own settings in its `services/setup.py`.
 * All executables in a deployable share one database pool.
 
 ### `src/backend/libs/infra`
@@ -195,7 +195,7 @@ AIPs define what the API means, and Buf defines how the protos look. Where they 
 
 * **The real system:** every deployable runs as its own process on a fresh database, and Chrome loads the production frontend build.
 * **A debug user instead of Google:** the backend runs with `DEBUG=true` and accepts only `DEBUG_USER_JWT`. The browser starts with a Firebase session holding that token, so no test reaches the internet.
-* **Fakes of third parties:** each is a local server in `src/tests/e2e/framework/fakes/`, one per third party, serving committed responses. Agents answer from a fake Ollama, which also records what the model was told.
+* **Fakes of third parties:** each is a local server in `src/tests/e2e/framework/fakes/`, one per third party, serving committed responses. The system starts every fake there and gives every deployable the settings that point it at them. Agents answer from a fake Ollama, which also records what the model was told.
 * **The real clock:** time-based behavior is tested in component tests.
 
 Each feature gets its main journey, the failures that need real processes (such as a backend restart), and every RPC the frontend calls.

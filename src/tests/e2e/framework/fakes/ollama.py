@@ -20,6 +20,8 @@ API_KEY = "e2e-ollama-api-key"
 class FakeOllama:
     def __init__(self, port: int) -> None:
         self.url = f"http://127.0.0.1:{port}/v1"
+        # The deployable's settings that point its agents at this fake.
+        self.environment = {"OLLAMA_BASE_URL": self.url, "OLLAMA_API_KEY": API_KEY}
         # Each chat completion request's `Authorization` header and JSON body, in order.
         self.requests: list[tuple[str, dict[str, Any]]] = []
 
@@ -30,7 +32,7 @@ class FakeOllama:
 
 
 @contextmanager
-def running_fake_ollama() -> Iterator[FakeOllama]:
+def serve() -> Iterator[FakeOllama]:
     """Serves the fake until the block ends."""
     answer = ANSWER_STREAM.read_bytes()
     recorded: list[tuple[str, dict[str, Any]]] = []

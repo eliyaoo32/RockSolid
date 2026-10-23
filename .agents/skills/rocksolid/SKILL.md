@@ -25,6 +25,7 @@ RockSolid is a framework for building a product with AI agents: a Python backend
 | Task | `examples/src/backend/modules/clients/domain/client_tasks.py` |
 | Repository, table model, and filter schema | `examples/src/backend/modules/clients/repositories/` |
 | Application service that publishes events and queues tasks | `examples/src/backend/modules/clients/services/clients.py`, `setup.py` |
+| Module settings, and a third party the module talks to | `ClientsSettings` in `examples/src/backend/modules/clients/services/setup.py`, `examples/src/backend/modules/clients/repositories/mail_api_clients.py`, and its fake, `examples/src/tests/e2e/framework/fakes/mail_api.py` |
 | Module schema migrations | `examples/src/backend/modules/clients/migrations/` |
 | Contract | `examples/src/protos/clients/v1/clients.proto` |
 | RPC service | `examples/src/backend/executables/clients_api/` |
@@ -80,7 +81,7 @@ src/tests/e2e/framework/                                      # the running syst
 src/tests/e2e/framework/fakes/<third_party>.py                # a fake server for each third party
 ```
 - Drivers, fixtures, and fakes live only in `framework/` folders or `src/backend/libs/testing/`, never in test files or product code.
-- An E2E fake of a third party is a server in `src/tests/e2e/framework/fakes/`, one file named after the third party (`fakes/ollama.py`), with its committed responses in `fakes/testdata/`.
+- A fake of a third party is a server in `src/tests/e2e/framework/fakes/`, one file named after the third party (`fakes/ollama.py`), with its committed responses in `fakes/testdata/`. It exports `serve()`, which runs it and gives the settings that point the deployables at it (`environment`). The E2E system starts every fake it finds there and passes their settings to every deployable; a component test starts the fake it needs and sets its settings.
 - Only test code may import `src/backend/libs/testing/`.
 
 ### Drivers
@@ -99,7 +100,7 @@ src/tests/e2e/framework/fakes/<third_party>.py                # a fake server fo
 |---|---|---|
 | Database | Real ephemeral Postgres (testcontainers); each test starts from empty tables | Real ephemeral Postgres |
 | Other RPC services | A fake implementation of the generated service, served by a local test server | The real deployable, or the same fake |
-| Third-party HTTP APIs | Recorded responses replayed with `pytest-recording`; `respx` for one-off stubs | A fake server per third party, serving committed fixtures |
+| Third-party APIs | The fake server of the third party, with the module's settings pointing at it | The same fake server, started for every deployable |
 | LLM | `TestModel` or `FunctionModel`, injected through `FakeModels` | A fake Ollama server, set as `OLLAMA_BASE_URL`, streaming a committed answer |
 | Firebase Auth | A fake token verifier, injected | The backend's debug user (`DEBUG=true`, `DEBUG_USER_JWT`), signed in through a Firebase session the test stores in the browser |
 | Time | The injected clock | The real clock; time-driven behavior is tested in component tests |

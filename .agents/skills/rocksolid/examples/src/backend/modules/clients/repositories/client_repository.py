@@ -34,3 +34,14 @@ class ClientRepository(Protocol):
     async def delete(self, owner_id: UserId, client_id: UUID) -> bool:
         """Deletes the owner's client. Returns False when the owner has no such client."""
         ...
+
+
+class MailNotConfiguredError(Exception):
+    """The module's settings lack what sending email needs, so no retry can send it."""
+
+
+class WelcomeMailer(Protocol):
+    async def send_welcome(self, client: Client, email: str) -> None:
+        """Sends the client the welcome email at `email`. Raises MailNotConfiguredError when
+        the settings cannot send it."""
+        ...
