@@ -219,7 +219,7 @@ Each feature gets its main journey, the failures that need real processes (such 
 Ctrl+C stops both servers; Postgres keeps running until `docker compose down`.
 
 * **One settings file, committed:** `.env.development` holds the dev settings, and none is a secret. Vite reads it for the dev server, and never for a build. `make dev` passes the same file to the backend as environment variables.
-* **A dev Firebase project:** local sign-in is real Google sign-in, through a Firebase project of its own, never production's. Its public web config fills the `FIREBASE_*` values in `.env.development`. Firebase allows `localhost` by default.
+* **A dev Firebase project:** local sign-in is real Firebase sign-in, with Google or an email and password, through a Firebase project of its own, with the Google and Email/Password providers enabled, never production's. Its public web config fills the `FIREBASE_*` values in `.env.development`. Firebase allows `localhost` by default.
 * **Secrets stay in your shell:** agents need `OLLAMA_API_KEY`, which is a secret, so it never goes in `.env.development`. Export it before `make dev`.
 * **Other Pants commands keep working:** Pants runs concurrently (`concurrent = true` in `pants.toml`), so `pants test` and `make verify` run while `make dev` does.
 
@@ -259,7 +259,7 @@ Ctrl+C stops both servers; Postgres keeps running until `docker compose down`.
 
 * SQLModel - ORM for the database tables. Built on Pydantic, like the domain models.
 
-* Firebase authentication - Integrate very easily with the AI, a lot of authentications features are available out of the box. The backend verifies Firebase ID tokens itself, with PyJWT and Google's public keys. The frontend uses Firebase only to sign in and to get the ID token; the backend is the source of truth about the user.
+* Firebase authentication - Integrate very easily with the AI, a lot of authentications features are available out of the box. The backend verifies Firebase ID tokens itself, with PyJWT and Google's public keys. The frontend uses Firebase only to sign in, with Google or with an email and password (anyone may create an account), and to get the ID token; the backend is the source of truth about the user.
 
 * Shadcn - It's has most of the components we will need, very good for building beatiful applications, agents work with it well.
 
