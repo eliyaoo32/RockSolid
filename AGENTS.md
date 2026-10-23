@@ -49,6 +49,13 @@ src/tests/e2e/                         # E2E tests of the whole system
 - **Shared Domain Holds Only Value Objects and Enums:** `src/backend/modules/shared/domain/` never holds entities, services, or repositories.
 - **Executables Are Named After Their Job:** An executable's folder name says what it does, such as `<module>_api` for a module's RPC service or `<module>_assistant` for its AI agent, never only its type.
 
+## Commands
+- `make dev` runs the whole system on this machine: Postgres in Docker, the backend, and the frontend, both restarting when their code changes.
+- `make verify` runs every check. A change is done only when it passes.
+- `make e2e` runs only the E2E tests.
+- `make generate` regenerates the code from the contracts.
+- `make verify-examples` runs `make verify` with the `rocksolid` skill's examples in place. Only RockSolid runs it.
+
 ## Backend
 
 ### Domain and Persistence
@@ -68,7 +75,7 @@ src/tests/e2e/                         # E2E tests of the whole system
 - **Events and Tasks Commit With Their Change:** A change, the events it publishes, and the tasks it queues commit in one transaction, or not at all. Never publish or queue after the commit: a crash between the two loses them.
 - **Safe to Run Again:** A cron job, an event handler, and a task handler may each run more than once, so each must be safe to run again.
 - **Agent Tools Act as the User:** A tool gets the signed-in user's ID from `ctx.deps.signed_in_user_id()` and passes it to module services, the same way an RPC handler does. A tool never has a user ID parameter: the model fills in tool parameters, so such a parameter would let the model, or a message a user typed, act as someone else. When the model sent a value it can fix, such as an invalid filter, the tool raises `ModelRetry` with a message saying what is wrong, and the model tries again.
-- **Debug Mode Is One List:** Every effect of `DEBUG=true` is listed in the README's "Debug Mode" section. A change that adds an effect adds it there.
+- **Debug Mode Is One List:** Every effect of `DEBUG=true` is listed in the "Debug Mode" section of `.agents/skills/rocksolid/FRAMEWORK.md`. A change that adds an effect adds it there.
 - **Logging:** Write logs with Python's `logging` module (`logger = logging.getLogger(__name__)`), never with `print`. The runtime turns every log line into JSON on stdout and adds the ID of the request it belongs to, so all the logs of one request can be found together.
 
 ### API
@@ -80,6 +87,8 @@ src/tests/e2e/                         # E2E tests of the whole system
 ## Wireframe
 - **User Flow First:** Before designing a screen, card, or component, write the user's flow from their side: who arrives, from where, what they want done, and where they go next. Then load the `ui-ux-pro-max` skill and take from it the patterns that fit that flow.
 - **The README Explains Every Decision:** `src/clients/wireframe/README.md` describes each view explicitly: its layout, components, states, colors, text, and the reason for each choice the owner made. A wireframe change updates the README in the same change, so the README always describes the wireframe as it is today.
+- **The Owner's Rejections Stay Recorded:** When the owner rejects or removes something, such as a subtitle or a badge, the wireframe README says so in one line, in the section it affects, with the owner's reason (`No subtitle under the product name: the owner wants a quiet header.`), so no one adds it back. The wireframe README records the owner's decisions, never the attempts that led to them.
+- **The Owner's Design Guidelines Hold Everywhere:** A guideline the owner states for the whole product, such as "one primary action per screen" or "no nested cards", goes in the wireframe README's "Design Guidelines" section, in one line with its reason, and every view follows it.
 
 ## Frontend
 These rules apply to the production frontend in `src/clients/web-app/`. The wireframe in `src/clients/wireframe/` is a design artifact and does not follow them.
@@ -101,12 +110,13 @@ These rules apply to the production frontend in `src/clients/web-app/`. The wire
 - **Cmd/Ctrl+Enter Submits a Text Area:** In a text area with a submit button, Cmd+Enter on macOS and Ctrl+Enter elsewhere submits exactly what the button submits. A plain Enter adds a line.
 - **No Hard-Coded Backend Data:** The frontend never contains hard-coded, mock, or placeholder data that should come from the backend, such as user names, records, counts, or settings. Such data comes only from the backend and the signed-in user's context.
 - **All UI Text Through i18n:** Every user-facing string renders through a translation key, never as a literal in a component.
-- **The Wireframe Is the Approved Design:** The owner reviewed and approved the wireframe and its README. The frontend matches their layout, components, colors, and text, and never redesigns them.
+- **The Wireframe Is the Approved Design:** The owner reviewed and approved the wireframe and its README. The frontend matches their layout, components, colors, and text, follows their design guidelines, and never redesigns them.
 - **Missing States Go to the Owner:** The wireframe does not show every state. Before building a view, list each state it leaves out, such as empty lists, errors, each status of an entity, and long or missing values, and propose a design for each that follows the wireframe. Build them after the owner approves. A state these guidelines already define, such as loading, needs no approval.
 
 ## Blueprints
 - **Behavior Changes Update the Blueprint:** A change that alters a feature's behavior, domain model, operations, flows, or decisions updates that feature's blueprint in the same pull request.
 - **Owner Changes Are Recorded:** When the owner changes a decision, record it in the blueprint's Decisions table as Owner, and update every section it affects.
+- **The README Describes the Product:** `README.md` holds only what is specific to the product: what it is and who uses it, its domain (the main concepts and their rules), its architecture (the modules, executables, and deployables it adds, and how they work together), and the decisions made for it, each feature linking to its blueprint. Commands and implementation guidelines live in `AGENTS.md`, and RockSolid's own principles and design in `.agents/skills/rocksolid/FRAMEWORK.md`. A pull request that changes the product's domain, architecture, or decisions updates the README.
 - **Pull Requests Name Their Blueprints:** The pull request description names each blueprint it updates, or says why none needs an update.
 
 ## Testing
@@ -131,7 +141,7 @@ Each behavior is tested at the lowest level that can catch its bug, and each lev
 - **Backend Component Tests:** Test one executable as a whole, through its contract: RPC calls for an RPC service, a published event for a domain-events listener, a queued task for a tasks consumer, a clock tick for a cron scheduler, and a conversation for an AI agent. Each test runs a complete flow the way a client uses the component: for an RPC service, create a record, list it, update it, and get it again. Services, repositories, and the database (an ephemeral Postgres) are real parts of the component and are never tested on their own; everything outside the executable is a fake. A feature that spans executables runs them together in one test (`run_executables([...])`).
 - **Frontend Component Tests:** Test the frontend as a whole, through what the user sees and does, with Vitest and Testing Library. The tests live in `src/clients/web-app/tests/`, and the driver renders the real `App` with `FakeSignIn` in place of Firebase and `fakeBackend` in place of the backend.
 - **Provider Repository Tests:** A repository that talks to a provider, such as `firebase_users.py`, is replaced by a fake in component tests, so it has its own tests next to it, against a local fake of the provider.
-- **End-to-End (E2E) Tests:** Test the whole system with Playwright for Python: every backend deployable, each run as its own process on one fresh database, and the production frontend build in Google Chrome, with the backend's debug user signed in in place of Firebase (README, "How E2E Tests Work"). E2E tests simulate complicated, realistic user journeys: long flows across several screens and features, done the way real users do them, including mistakes, corrections, and returning later to continue. They cover:
+- **End-to-End (E2E) Tests:** Test the whole system with Playwright for Python: every backend deployable, each run as its own process on one fresh database, and the production frontend build in Google Chrome, with the backend's debug user signed in in place of Firebase (`.agents/skills/rocksolid/FRAMEWORK.md`, "How E2E Tests Work"). E2E tests simulate complicated, realistic user journeys: long flows across several screens and features, done the way real users do them, including mistakes, corrections, and returning later to continue. They cover:
   - each feature's main journey;
   - every failure that needs real processes, a real network, or a restart to happen, such as the backend restarting in the middle of a journey;
   - every RPC the frontend calls, at least once through the UI.
