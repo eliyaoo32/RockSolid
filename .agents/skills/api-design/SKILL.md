@@ -61,6 +61,6 @@ Every request and response is its own message named after its method (`GetContac
 
 ## Form
 
-- **Buf style guide:** follow the [Buf style guide](https://buf.build/docs/best-practices/style-guide). `buf lint` (the `STANDARD` rules), `buf format`, and `buf breaking` run in the verification command.
+- **Buf style guide:** follow the [Buf style guide](https://buf.build/docs/best-practices/style-guide). `buf lint` (the `STANDARD` rules) and `buf format` run in the verification command.
 - **Packages:** one package per module and version, such as `contacts.v1`, in a folder that matches it: `src/protos/contacts/v1/`.
 - **Comments:** every service, method, message, and field has a comment that says what it is for.

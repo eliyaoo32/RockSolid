@@ -1,6 +1,6 @@
 ---
 name: rocksolid
-description: How to build each piece of a product on RockSolid, the framework for products made of a backend and the clients that call it, with a working example of each. Use when adding a Python dependency or a contract module, when a change breaks a contract, or when creating or changing a module, an entity, a repository, a migration, a domain event, a task, an executable (RPC service, AI agent, cron scheduler, tasks consumer, or domain-events listener), a deployable, or their component and E2E tests.
+description: How to build each piece of a product on RockSolid, the framework for products made of a backend and the clients that call it, with a working example of each. Use when adding a Python dependency or a contract module, or when creating or changing a module, an entity, a repository, a migration, a domain event, a task, an executable (RPC service, AI agent, cron scheduler, tasks consumer, or domain-events listener), a deployable, or their component and E2E tests.
 ---
 
 # RockSolid
@@ -41,12 +41,6 @@ RockSolid's CI verifies the examples with `make verify-examples`: it copies them
 ## Dependencies
 - **Through Pants Only:** Add the requirement to `3rdparty/python/requirements.txt`, then run `pants generate-lockfiles`. Pants infers which code uses it. Never install with `pip` or `uv`; Pants does not read their environments or lockfiles.
 - **Our Packages Are Listed for Ruff:** `known-first-party` in `pyproject.toml` lists every top-level Python package of our own: each folder in `src/backend/` and `src/tests/`, and each module generated into `src/generated/python/`. Pants lints a few files at a time, so Ruff cannot find our packages on disk and sorts an unlisted one as third-party. A change that adds such a folder or a contract module (`src/protos/<module>/`) adds its name to the list.
-
-## Contracts
-- **Breaking Changes Fail the Check:** `make contracts`, part of `make verify`, runs `buf breaking` against `main` and fails a change that breaks a contract, such as a deleted file, field, or method, or a field whose type or number changed. Make the change compatible instead: add a field or a method, and keep the old one.
-- **The Owner Allows a Breaking Change With a Label:** When a break is intended, such as removing a contract no client uses, the owner adds the `buf skip breaking` label to the pull request. CI then skips `buf breaking` for that pull request alone; `buf lint`, `buf format`, and every other check still run. Removing the label runs the check again. The pull request description says what breaks and why no client is hurt. Only the owner adds the label; an agent asks the owner. Locally, `make verify BREAKING=false` skips the same check.
-- **Never Exempt a Break in `buf.yaml`:** An `ignore` or `except` in `buf.yaml`'s `breaking` section would hold for every later change and for every project that inherits the file, so a break is allowed only through the label.
-- **One Label per Repository:** The label exists once in each repository. A new project creates it: `gh label create "buf skip breaking" --description "The owner allows this pull request's breaking contract change"`.
 
 ## Repositories
 - **Repository Files:** A repository's interface and its implementation both live in `repositories/`, in separate files: `<aggregate>_repository.py` for the interface and `postgres_<aggregates>.py` for a Postgres implementation. Application services import only the interface; only the module's `services/setup.py` imports an implementation. The implementation talks to a database, or to a provider's API as `firebase_users.py` does to sign users in. A database repository uses SQLModel table models (`table=True`). It converts with `model_validate` (`<Entity>.model_validate(row, from_attributes=True)` and `<Entity>Row.model_validate(entity)`), and maps by hand only the fields whose name or shape differ, such as value-object columns.

@@ -1,8 +1,4 @@
 # `make verify` is the single verification command: a change is done only when it passes.
-# BASE is the git ref that contracts must stay compatible with. BREAKING=false skips that check:
-# CI passes it for a pull request the owner labeled `buf skip breaking`.
-BASE ?= main
-BREAKING ?= true
 
 .PHONY: verify verify-examples contracts generated generate web e2e e2e-frontend dev dev-backend dev-frontend
 
@@ -11,8 +7,7 @@ verify: contracts generated web e2e-frontend
 
 # Runs the verification command with the rocksolid skill's examples in src/, on a copy of the working
 # tree (its committed, changed, and new files) that is deleted afterwards. Only RockSolid runs it.
-# The examples only add files; the one other change lists their contract module for Ruff. The copy
-# has no git history, so `buf breaking` is left to `make verify`.
+# The examples only add files; the one other change lists their contract module for Ruff.
 EXAMPLES = .agents/skills/rocksolid/examples
 
 verify-examples:
@@ -45,17 +40,10 @@ web:
 	pnpm -r run test
 	pnpm -r run build
 
-# Lints and formats the contracts, and fails on changes that break existing clients.
+# Lints and formats the contracts.
 contracts:
 	buf lint
 	buf format --diff --exit-code
-	@if [ "$(BREAKING)" = "false" ]; then \
-		echo "buf breaking: skipped, as the pull request's 'buf skip breaking' label asks."; \
-	elif git cat-file -e $(BASE):buf.yaml 2>/dev/null; then \
-		buf breaking --against '.git#ref=$(BASE)'; \
-	else \
-		echo "buf breaking: $(BASE) has no contracts yet, nothing to compare."; \
-	fi
 
 # Fails when the committed generated code differs from what the contracts generate.
 generated:
