@@ -95,6 +95,7 @@ export function SignInView() {
               <>
                 <Button
                   variant="outline"
+                  data-testid="sign-in-with-google"
                   onClick={() =>
                     void run("google", () => signIn.signInWithGoogle())
                   }

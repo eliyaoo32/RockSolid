@@ -1,5 +1,8 @@
 """Drives the app through the browser, as a user would. `get.*` returns what the user sees, for
-assertions that wait until it appears (`expect(driver.get.header()).to_contain_text(...)`)."""
+assertions that wait until it appears (`expect(driver.get.account()).to_contain_text(...)`).
+
+It finds controls by `data-testid`, never by their text or layout, so it drives every project's
+own sign-in and account controls, in any language."""
 
 from playwright.sync_api import Locator, Page
 
@@ -24,7 +27,9 @@ class _When:
         self._page.reload()
 
     def sign_out(self) -> None:
-        self._page.get_by_role("button", name="Sign out").click()
+        # The account control opens the menu that holds sign-out, when a project keeps it in one.
+        self._page.get_by_test_id("account").click()
+        self._page.get_by_test_id("sign-out").click()
 
     def restart_the_backend(self) -> None:
         """Restarts every deployable, as a release does."""
@@ -35,8 +40,9 @@ class _Get:
     def __init__(self, page: Page) -> None:
         self._page = page
 
-    def header(self) -> Locator:
-        return self._page.get_by_role("banner")
+    def account(self) -> Locator:
+        """The control that shows the signed-in user's name."""
+        return self._page.get_by_test_id("account")
 
     def sign_in_button(self) -> Locator:
-        return self._page.get_by_role("button", name="Sign in with Google")
+        return self._page.get_by_test_id("sign-in-with-google")

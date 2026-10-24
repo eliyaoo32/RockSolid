@@ -9,10 +9,10 @@ def test_shows_the_signed_in_user_across_a_reload_and_stays_signed_out_after_sig
 ) -> None:
     driver.when.open_the_app()
     # The backend's name for the user, so the backend signed in the debug user from its token.
-    expect(driver.get.header()).to_contain_text(DEBUG_USER_NAME)
+    expect(driver.get.account()).to_contain_text(DEBUG_USER_NAME)
 
     driver.when.reload()
-    expect(driver.get.header()).to_contain_text(DEBUG_USER_NAME)
+    expect(driver.get.account()).to_contain_text(DEBUG_USER_NAME)
 
     driver.when.sign_out()
     expect(driver.get.sign_in_button()).to_be_visible()
@@ -23,9 +23,9 @@ def test_shows_the_signed_in_user_across_a_reload_and_stays_signed_out_after_sig
 
 def test_keeps_the_user_signed_in_across_a_backend_restart(driver: E2EDriver) -> None:
     driver.when.open_the_app()
-    expect(driver.get.header()).to_contain_text(DEBUG_USER_NAME)
+    expect(driver.get.account()).to_contain_text(DEBUG_USER_NAME)
 
     driver.when.restart_the_backend()
     driver.when.reload()
 
-    expect(driver.get.header()).to_contain_text(DEBUG_USER_NAME)
+    expect(driver.get.account()).to_contain_text(DEBUG_USER_NAME)
