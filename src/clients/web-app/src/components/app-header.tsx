@@ -21,7 +21,7 @@ export function AppHeader() {
             className="h-4 w-24"
           />
         ) : (
-          <span className="text-sm text-muted-foreground">
+          <span data-testid="account" className="text-sm text-muted-foreground">
             {user.data?.displayName}
           </span>
         )}
@@ -29,6 +29,7 @@ export function AppHeader() {
         <Button
           variant="outline"
           size="sm"
+          data-testid="sign-out"
           onClick={() => void signIn.signOut()}
         >
           {t("signIn.signOut")}
