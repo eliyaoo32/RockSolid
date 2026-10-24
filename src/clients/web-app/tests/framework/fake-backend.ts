@@ -8,6 +8,19 @@ function isAccount(value: string | undefined): value is Account {
   return value !== undefined && value in USERS
 }
 
+export function emailOf(account: Account) {
+  return `${account}@example.com`
+}
+
+/** The account an email belongs to, for the emails of the backend's users only. */
+export function accountOf(email: string): Account {
+  const account = email.replace(/@example\.com$/, "")
+  if (!isAccount(account)) {
+    throw new Error(`The backend has no user with the email ${email}`)
+  }
+  return account
+}
+
 /** Serves the backend's calls the way the backend would, and records each call. */
 export function fakeBackend() {
   const calls: { url: string; authorization: string | null }[] = []
@@ -33,7 +46,7 @@ export function fakeBackend() {
         user: {
           name: `users/${account}`,
           displayName: USERS[account],
-          email: `${account}@example.com`,
+          email: emailOf(account),
         },
       })
     )
