@@ -59,7 +59,11 @@ def test_lists_renames_and_pins_the_users_conversations_across_a_restart(
         ]
 
         change_conversation(
-            system, DEBUG_USER_JWT, clients_name, title="My clients", pinned=True,
+            system,
+            DEBUG_USER_JWT,
+            clients_name,
+            title="My clients",
+            pinned=True,
             paths=["title", "pinned"],
         )
         # A blank title is a mistake the backend refuses, and the old title stays.
