@@ -51,12 +51,26 @@ export default defineConfig([
     ignores: ["src/**/*.test.tsx"],
     extends: [i18next.configs["flat/recommended"]],
     rules: {
-      // Text in JSX and in its attributes goes through i18n; a route path is not text.
+      // Text in JSX, and in the attributes a user reads or hears, goes through i18n. Other
+      // attributes, such as `dir`, `id`, `value`, and a route's `to`, are not text.
       "i18next/no-literal-string": [
         "error",
         {
           mode: "jsx-only",
-          "jsx-attributes": { exclude: ["className", "to", "path"] },
+          "jsx-attributes": {
+            include: [
+              "alt",
+              "aria-description",
+              "aria-label",
+              "aria-placeholder",
+              "aria-roledescription",
+              "aria-valuetext",
+              "description",
+              "label",
+              "placeholder",
+              "title",
+            ],
+          },
         },
       ],
     },

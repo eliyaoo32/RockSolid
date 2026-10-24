@@ -48,6 +48,13 @@ RockSolid is a framework for building a product with AI agents: a Python backend
 * **Zero Synchronous Write Coupling:** Domains publish events about what occurred; they never orchestrate or reach into other domains' write pipelines.
 * **Isolated Failure Domains:** A failure in an event subscriber must never block or roll back the publishing domain's core state transaction.
 
+### Parallel Features by Independent Agents
+
+* **One Feature, One Agent:** Each feature is built by its own AI agent, on its own branch, from its own approved blueprint, so several features are built at the same time.
+* **Independent Modules Make It Safe:** A feature owns its module, its contracts, its executables, and its screens. Modules share only their domains and talk through contracts and events, so agents building different features work in different files.
+* **Contracts First, Then Fan Out:** The blueprints and `.proto` contracts of the features built together are approved before their agents start. A feature that calls another feature's API builds against that approved contract, with fakes in its tests, while the other agent implements it.
+* **Shared Files Only Grow:** The few files every feature touches, such as the deployable's list of executables, the routes, the translation keys, and the Python requirements, only gain lines, so parallel branches merge with small, mechanical conflicts.
+
 ### Composable 4-Tier Layer Hierarchy
 
 * **Strict 4-Tier Architecture:** The codebase is partitioned into Business Modules (`src/backend/modules/`), Infrastructure Libraries (`src/backend/libs/`), Executable Elements (`src/backend/executables/`), and Deployables (`src/backend/deployables/`).
@@ -213,7 +220,7 @@ Each feature gets its main journey, the failures that need real processes (such 
 Ctrl+C stops both servers; Postgres keeps running until `docker compose down`.
 
 * **One settings file, committed:** `.env.development` holds the dev settings, and none is a secret. Vite reads it for the dev server, and never for a build. `make dev` passes the same file to the backend as environment variables.
-* **A dev Firebase project:** local sign-in is real Google sign-in, through a Firebase project of its own, never production's. Its public web config fills the `FIREBASE_*` values in `.env.development`. Firebase allows `localhost` by default.
+* **A dev Firebase project:** local sign-in is real Firebase sign-in, with Google or an email and password, through a Firebase project of its own, with the Google and Email/Password providers enabled, never production's. Its public web config fills the `FIREBASE_*` values in `.env.development`. Firebase allows `localhost` by default.
 * **Secrets stay in your shell:** agents need `OLLAMA_API_KEY`, which is a secret, so it never goes in `.env.development`. Export it before `make dev`.
 * **Other Pants commands keep working:** Pants runs concurrently (`concurrent = true` in `pants.toml`), so `pants test` and `make verify` run while `make dev` does.
 
@@ -253,7 +260,7 @@ Ctrl+C stops both servers; Postgres keeps running until `docker compose down`.
 
 * SQLModel - ORM for the database tables. Built on Pydantic, like the domain models.
 
-* Firebase authentication - Integrate very easily with the AI, a lot of authentications features are available out of the box. The backend verifies Firebase ID tokens itself, with PyJWT and Google's public keys. The frontend uses Firebase only to sign in and to get the ID token; the backend is the source of truth about the user.
+* Firebase authentication - Integrate very easily with the AI, a lot of authentications features are available out of the box. The backend verifies Firebase ID tokens itself, with PyJWT and Google's public keys. The frontend uses Firebase only to sign in, with Google or with an email and password (anyone may create an account), and to get the ID token; the backend is the source of truth about the user.
 
 * Shadcn - It's has most of the components we will need, very good for building beatiful applications, agents work with it well.
 

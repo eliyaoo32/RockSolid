@@ -9,6 +9,9 @@ export const fakeAuth = {
   currentUser: null as FakeFirebaseUser | null,
   googleUser: null as FakeFirebaseUser | null,
   popup: "signs-in" as "signs-in" | "closed" | "fails",
+  /** What the next email request fails with, or null when it succeeds. */
+  emailFails: null as Error | null,
+  resetEmailsSentTo: [] as string[],
   listener: undefined as ((user: FakeFirebaseUser | null) => void) | undefined,
 }
 
@@ -61,4 +64,32 @@ export function signInWithPopup(_auth: unknown, provider: unknown) {
 export function signOut() {
   setUser(null)
   return Promise.resolve()
+}
+
+function emailRequest(onSuccess: () => void) {
+  const error = fakeAuth.emailFails
+  if (error) {
+    fakeAuth.emailFails = null
+    return Promise.reject(error)
+  }
+  onSuccess()
+  return Promise.resolve()
+}
+
+export function signInWithEmailAndPassword(_auth: unknown, email: string) {
+  return emailRequest(() => {
+    setUser(firebaseUser(email))
+  })
+}
+
+export function createUserWithEmailAndPassword(_auth: unknown, email: string) {
+  return emailRequest(() => {
+    setUser(firebaseUser(email))
+  })
+}
+
+export function sendPasswordResetEmail(_auth: unknown, email: string) {
+  return emailRequest(() => {
+    fakeAuth.resetEmailsSentTo.push(email)
+  })
 }
