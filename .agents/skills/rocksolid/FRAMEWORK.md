@@ -162,6 +162,7 @@ Agents are plain Pydantic AI agents. An agent executable returns its agent from 
 * **Signed in like the API:** agents use the same sign-in as the RPC services, and `require_auth` decides whether anonymous callers may talk to an agent.
 * **Acts as its user:** tools call module services with the caller, so an agent can do only what its user can.
 * **Conversations live on the server:** each request carries only the user's newest message, and the agent runs on the conversation the server keeps, so a client cannot rewrite it.
+* **Users find their conversations again:** the `app` deployable's `conversations_api` serves `ConversationsService`, through which each signed-in user lists their own conversations with an agent, pinned ones first and then by their last message, opens one with its text messages, and renames or pins it. A conversation is titled with the user's first message until they rename it.
 * **One message at a time:** while the agent answers, the next message is refused. A failed, stopped, or crashed run keeps the user's message, and every run is cut off after 10 minutes.
 * **Each agent picks its model** through `infra.models`. A provider without an API key stops the deployable from starting.
 * **Pydantic AI does the rest:** compaction, history trimming, and other capabilities are set on the agent.

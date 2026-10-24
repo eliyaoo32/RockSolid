@@ -3,11 +3,13 @@
 import asyncio
 import sys
 
+from executables.conversations_api.conversations_api import ConversationsApiExecutable
 from executables.users_api.users_api import UsersApiExecutable
 from libs.infra.runtime.runtime import run
 
 EXECUTABLES = [
     UsersApiExecutable,
+    ConversationsApiExecutable,
 ]
 
 if __name__ == "__main__":
