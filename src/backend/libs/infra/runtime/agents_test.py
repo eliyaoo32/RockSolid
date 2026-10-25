@@ -15,7 +15,6 @@ from pydantic_ai.messages import (
     ModelMessagesTypeAdapter,
     ModelRequest,
     ModelResponse,
-    RetryPromptPart,
     TextPart,
     ToolReturnPart,
     UserPromptPart,
@@ -68,10 +67,10 @@ class ScriptedModel:
     ) -> AsyncIterator[str | DeltaToolCalls]:
         self.histories.append(list(messages))
         last = messages[-1].parts[-1]
-        if isinstance(last, ToolReturnPart):
-            yield f"You are {last.content}"
-        elif isinstance(last, RetryPromptPart):
+        if isinstance(last, ToolReturnPart) and last.outcome == "retried":
             yield f"Retry: {last.content}"
+        elif isinstance(last, ToolReturnPart):
+            yield f"You are {last.content}"
         elif isinstance(last, UserPromptPart) and last.content == "who am i":
             yield {0: DeltaToolCall(name="whoami", json_args="{}")}
         elif isinstance(last, UserPromptPart) and last.content == "hold":
