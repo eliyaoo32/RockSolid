@@ -3,7 +3,8 @@
 A task is a frozen Pydantic model with a class-level `task_type`, a stable name such as
 `clients.SendClientWelcome`. Queuing writes it in the same transaction as the change that asks
 for it. Each task type has one handler, in one executable of one deployable, which runs it once
-it succeeds.
+it succeeds. A handler that refuses a task raises TaskRejectedError with a domain event, which
+the queue publishes as it removes the task.
 
 `PostgresTaskQueue` runs tasks from the queue in Postgres. Another queue, such as a hosted
 broker, would implement the same `TaskQueue` interface, so consumers never change.
@@ -25,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from libs.infra.cron.cron import Wait, wait_until
 from libs.infra.db.migrations import apply_migrations
 from libs.infra.db.notifications import run_on_notifications
+from libs.infra.events.events import append_events, event_type_of
 from libs.infra.logs.json_logs import request_id
 from libs.infra.retry.retry import Exponential, NonRetryableError, RetryStrategy
 
@@ -43,6 +45,15 @@ def task_type_of(task_class: type[BaseModel]) -> str:
     if not isinstance(task_type, str):
         raise TypeError(f"{task_class.__name__} has no task_type, so it is not a task")
     return task_type
+
+
+class TaskRejectedError(Exception):
+    """A handler raises it to refuse its task for a reason the module that queued the task
+    handles. The queue removes the task and publishes `event` in one transaction."""
+
+    def __init__(self, event: BaseModel) -> None:
+        super().__init__(f"task rejected with {event_type_of(type(event))}")
+        self.event = event
 
 
 @dataclass(frozen=True)
@@ -99,7 +110,8 @@ class PostgresTaskQueue:
     A task stays locked in its transaction while its handler runs, so when the process crashes,
     the task returns to the queue. A handler that fails is retried as its retry strategy says.
     When the strategy stops, or the handler raises NonRetryableError, the task moves to
-    `tasks.parked`.
+    `tasks.parked`. A handler that raises TaskRejectedError has its task removed and its event
+    appended to the event log in the same transaction.
 
     shortcut: each process runs one task of each type at a time, and holds a transaction open
     while it runs; run several workers per handler, or claim tasks without holding the
@@ -137,6 +149,8 @@ class PostgresTaskQueue:
             token = request_id.set(task.request_id or f"task-{task_type}-{task.id}")
             try:
                 await handler.handle(handler.task.model_validate_json(task.payload))
+            except TaskRejectedError as rejection:
+                await append_events(connection, [rejection.event])
             except Exception as error:
                 attempts = task.attempts + 1
                 delay = (

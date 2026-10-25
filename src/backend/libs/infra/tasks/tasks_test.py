@@ -7,13 +7,16 @@ from typing import Any, ClassVar
 import pytest
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
+from libs.infra.events.events import PostgresEventBus, Subscription, migrate_event_log
 from libs.infra.logs.json_logs import request_id
 from libs.infra.retry.retry import Constant, NonRetryableError
 from libs.infra.tasks.tasks import (
     PostgresTaskQueue,
     TaskHandler,
+    TaskRejectedError,
     enqueue_tasks,
     migrate_task_queue,
 )
@@ -34,8 +37,15 @@ class PrintBadge(BaseModel):
     name: str
 
 
+class InviteRefused(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    event_type: ClassVar[str] = "tests.InviteRefused"
+    name: str
+    reason: str
+
+
 class Untyped(BaseModel):
-    """Has no task_type, so it is not a task."""
+    """Has no task_type and no event_type, so it is neither a task nor a domain event."""
 
 
 class Handled:
@@ -48,6 +58,7 @@ class Handled:
         self.failing: set[str] = set()
         self.attempts = 0
         self.started = asyncio.Event()
+        self.refusals: list[InviteRefused] = []
 
     async def send_invite(self, task: SendInvite) -> None:
         self.attempts += 1
@@ -62,6 +73,17 @@ class Handled:
     async def refuse_invite(self, task: SendInvite) -> None:
         self.attempts += 1
         raise NonRetryableError(f"{task.name} has no address")
+
+    async def reject_invite(self, task: SendInvite) -> None:
+        self.attempts += 1
+        raise TaskRejectedError(InviteRefused(name=task.name, reason="already a member"))
+
+    async def reject_with_a_non_event(self, task: SendInvite) -> None:
+        self.attempts += 1
+        raise TaskRejectedError(Untyped())
+
+    async def note_refusal(self, event: InviteRefused) -> None:
+        self.refusals.append(event)
 
     async def crash_while_inviting(self, task: SendInvite) -> None:
         self.started.set()
@@ -104,8 +126,14 @@ class Queue:
 async def queue(database_url: str) -> AsyncIterator[Queue]:
     database = create_async_engine(database_url)
     await migrate_task_queue(database)
+    await migrate_event_log(database)
     async with database.begin() as connection:
-        await connection.execute(text("TRUNCATE tasks.queue, tasks.parked RESTART IDENTITY"))
+        await connection.execute(
+            text(
+                "TRUNCATE tasks.queue, tasks.parked, events.log, events.subscriptions,"
+                " events.parked RESTART IDENTITY"
+            )
+        )
     queue = Queue(database)
     yield queue
     queue.stop.set()
@@ -169,7 +197,13 @@ async def test_parks_a_task_once_its_retry_strategy_stops(
 
     with caplog.at_level(logging.WARNING):
         await queue.enqueue(SendInvite(name="Avi"))
-        await eventually(lambda: queue.handled.attempts == 1)
+
+        async def failed_once() -> bool:
+            # The failure and its retry time are recorded after the handler returns, so time moves
+            # only once they are, or the retry would be due 30 seconds after the moved time.
+            return await queue.rows("SELECT attempts FROM tasks.queue") == [(1,)]
+
+        await eventually(failed_once)
         queue.time.advance(timedelta(seconds=30))
 
         async def parked() -> bool:
@@ -231,6 +265,102 @@ async def test_runs_a_task_under_the_request_id_that_queued_it(queue: Queue) -> 
         request_id.reset(token)
 
     await eventually(lambda: queue.handled.request_ids == ["req-77"])
+
+
+async def test_a_rejected_task_leaves_the_queue_and_publishes_its_event(queue: Queue) -> None:
+    queue.start([TaskHandler(SendInvite, queue.handled.reject_invite)])
+    token = request_id.set("req-9")
+    try:
+        await queue.enqueue(SendInvite(name="Avi"))
+    finally:
+        request_id.reset(token)
+
+    async def queue_is_empty() -> bool:
+        return await queue.rows("SELECT id FROM tasks.queue") == []
+
+    await eventually(queue_is_empty)
+    assert queue.handled.attempts == 1, "never retried"
+    assert await queue.rows("SELECT id FROM tasks.parked") == [], "not parked"
+    assert await queue.rows(
+        "SELECT type, payload->>'name', payload->>'reason', request_id FROM events.log"
+    ) == [("tests.InviteRefused", "Avi", "already a member", "req-9")]
+
+
+async def test_a_listener_receives_the_event_of_a_rejected_task(queue: Queue) -> None:
+    await queue.enqueue(SendInvite(name="Avi"))
+    bus = asyncio.create_task(
+        PostgresEventBus(queue.database, queue.time, queue.time.wait).run(
+            [Subscription("tests.invites_refused", InviteRefused, queue.handled.note_refusal)],
+            queue.stop,
+        )
+    )
+    queue.consumers.append(bus)
+
+    async def subscribed() -> bool:
+        return len(await queue.rows("SELECT name FROM events.subscriptions")) == 1
+
+    await eventually(subscribed)
+    queue.start([TaskHandler(SendInvite, queue.handled.reject_invite)])
+
+    await eventually(lambda: len(queue.handled.refusals) == 1)
+    assert queue.handled.refusals == [InviteRefused(name="Avi", reason="already a member")]
+
+
+async def test_a_rejected_task_stays_queued_when_its_event_cannot_be_published(
+    queue: Queue,
+) -> None:
+    async with queue.database.begin() as connection:
+        await connection.execute(
+            text(
+                "CREATE OR REPLACE FUNCTION events.refuse_events() RETURNS trigger"
+                " LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'the event log is down'; END $$"
+            )
+        )
+        await connection.execute(
+            text(
+                "CREATE TRIGGER refuse_events BEFORE INSERT ON events.log"
+                " FOR EACH STATEMENT EXECUTE FUNCTION events.refuse_events()"
+            )
+        )
+    crashing = queue.start([TaskHandler(SendInvite, queue.handled.reject_invite)])
+    queue.consumers.remove(crashing)
+
+    await queue.enqueue(SendInvite(name="Avi"))
+
+    with pytest.RaisesGroup(pytest.RaisesExc(DBAPIError, match="the event log is down")):
+        await asyncio.wait_for(crashing, timeout=10)
+    assert queue.handled.attempts == 1
+    assert await queue.rows("SELECT payload->>'name', attempts FROM tasks.queue") == [("Avi", 0)]
+    assert await queue.rows("SELECT id FROM events.log") == []
+
+    async with queue.database.begin() as connection:
+        await connection.execute(text("DROP TRIGGER refuse_events ON events.log"))
+    queue.start([TaskHandler(SendInvite, queue.handled.reject_invite)])
+
+    async def rejected() -> bool:
+        return await queue.rows("SELECT payload->>'name' FROM events.log") == [("Avi",)]
+
+    await eventually(rejected)
+    assert queue.handled.attempts == 2
+    assert await queue.rows("SELECT id FROM tasks.queue") == []
+
+
+async def test_retries_a_rejection_whose_event_is_not_a_domain_event(
+    queue: Queue, caplog: pytest.LogCaptureFixture
+) -> None:
+    queue.start([TaskHandler(SendInvite, queue.handled.reject_with_a_non_event)])
+
+    with caplog.at_level(logging.WARNING):
+        await queue.enqueue(SendInvite(name="Avi"))
+
+        async def failed_once() -> bool:
+            return await queue.rows("SELECT attempts FROM tasks.queue") == [(1,)]
+
+        await eventually(failed_once)
+
+    assert "Untyped has no event_type" in caplog.text
+    assert await queue.rows("SELECT id FROM tasks.parked") == []
+    assert await queue.rows("SELECT id FROM events.log") == []
 
 
 def test_rejects_a_handler_for_a_model_without_a_task_type() -> None:

@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+package conversations.v1;
+
+import "buf/validate/validate.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+
+// The signed-in caller's conversations with the product's agents: listing them, reading one, and
+// renaming or pinning it. A caller reaches only their own conversations. Messages are added by
+// talking to the agent at `/agents/{agent}`, never through this service.
+service ConversationsService {
+  // Returns the caller's conversations with one agent, one page at a time: the pinned ones first,
+  // then the rest, each group by its last message, newest first.
+  rpc ListConversations(ListConversationsRequest) returns (ListConversationsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // Returns one of the caller's conversations, with its messages.
+  rpc GetConversation(GetConversationRequest) returns (GetConversationResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  // Changes the fields named in the update mask: the title, whether it is pinned, or both.
+  rpc UpdateConversation(UpdateConversationRequest) returns (UpdateConversationResponse);
+}
+
+// A conversation between the caller and an agent.
+message Conversation {
+  // The resource name, such as
+  // `agents/clients_assistant/conversations/0f8fad5b-d9cb-469f-a165-70867728950e`, where the last
+  // part is the conversation's AG-UI thread ID. Output only.
+  string name = 1;
+  // What the conversation is called: at first the user's first message, cut to 100 characters,
+  // until the user renames it. Empty only while the user has sent no text. At most 100
+  // characters.
+  string title = 2 [(buf.validate.field).string.max_len = 100];
+  // Whether the user pinned the conversation, so it lists before the others.
+  bool pinned = 3;
+  // When the conversation's last message was sent. Output only.
+  google.protobuf.Timestamp last_message_time = 4;
+}
+
+// Who sent a message.
+enum MessageRole {
+  // Never used.
+  MESSAGE_ROLE_UNSPECIFIED = 0;
+  // The user.
+  MESSAGE_ROLE_USER = 1;
+  // The agent.
+  MESSAGE_ROLE_ASSISTANT = 2;
+}
+
+// One text message of a conversation, as a chat screen shows it.
+message Message {
+  // Who sent it.
+  MessageRole role = 1;
+  // What it says.
+  string text = 2;
+  // When it was sent: the user's when the server received it, the agent's when its model
+  // answered.
+  google.protobuf.Timestamp send_time = 3;
+}
+
+// The request for ListConversations.
+message ListConversationsRequest {
+  // The agent whose conversations to list, such as `agents/clients_assistant`. An agent the
+  // caller never talked to has no conversations.
+  string parent = 1 [(buf.validate.field).string.prefix = "agents/"];
+  // The most conversations to return. The server uses 50 when it is 0, and at most 100.
+  int32 page_size = 2 [(buf.validate.field).int32.gte = 0];
+  // The next_page_token from a previous response, to get the next page.
+  string page_token = 3;
+}
+
+// The response for ListConversations.
+message ListConversationsResponse {
+  // The conversations on this page.
+  repeated Conversation conversations = 1;
+  // The token for the next page, or empty when this is the last page.
+  string next_page_token = 2;
+}
+
+// The request for GetConversation.
+message GetConversationRequest {
+  // The resource name of the conversation, such as
+  // `agents/clients_assistant/conversations/0f8fad5b-d9cb-469f-a165-70867728950e`.
+  string name = 1 [(buf.validate.field).string.prefix = "agents/"];
+}
+
+// The response for GetConversation.
+message GetConversationResponse {
+  // The conversation.
+  Conversation conversation = 1;
+  // The user's and the agent's text messages, oldest first. The agent's tool calls and their
+  // results are left out, and so is an answer that has no text.
+  repeated Message messages = 2;
+}
+
+// The request for UpdateConversation.
+message UpdateConversationRequest {
+  option (buf.validate.message).cel = {
+    id: "conversation.name.prefix"
+    message: "conversation.name must start with agents/"
+    expression: "this.conversation.name.startsWith('agents/')"
+  };
+  option (buf.validate.message).cel = {
+    id: "update_mask.paths"
+    message: "update_mask must name one or more of: title, pinned"
+    expression: "this.update_mask.paths.size() > 0 && this.update_mask.paths.all(path, path in ['title', 'pinned'])"
+  };
+
+  // The conversation, with name set to the conversation to change.
+  Conversation conversation = 1 [(buf.validate.field).required = true];
+  // The fields to change: `title`, `pinned`, or both. A title must not be blank.
+  google.protobuf.FieldMask update_mask = 2 [(buf.validate.field).required = true];
+}
+
+// The response for UpdateConversation.
+message UpdateConversationResponse {
+  // The changed conversation.
+  Conversation conversation = 1;
+}
