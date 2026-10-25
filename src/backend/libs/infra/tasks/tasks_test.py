@@ -197,7 +197,13 @@ async def test_parks_a_task_once_its_retry_strategy_stops(
 
     with caplog.at_level(logging.WARNING):
         await queue.enqueue(SendInvite(name="Avi"))
-        await eventually(lambda: queue.handled.attempts == 1)
+
+        async def failed_once() -> bool:
+            # The failure and its retry time are recorded after the handler returns, so time moves
+            # only once they are, or the retry would be due 30 seconds after the moved time.
+            return await queue.rows("SELECT attempts FROM tasks.queue") == [(1,)]
+
+        await eventually(failed_once)
         queue.time.advance(timedelta(seconds=30))
 
         async def parked() -> bool:
