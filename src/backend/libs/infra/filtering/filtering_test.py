@@ -132,6 +132,7 @@ async def matching(database: AsyncEngine, filter: str) -> list[str]:
         ("age lt 30 or age gt 40", ["Avi", "Noa"]),
         ("not (age gt 30)", ["Noa"]),
         ("first_name in ('Avi', 'Noa')", ["Avi", "Noa"]),
+        ("first_name in ('Avi',)", ["Avi"]),
         ("contains(first_name, 'an')", ["Dana"]),
         ("startswith(first_name, 'No')", ["Noa"]),
         ("endswith(first_name, 'vi')", ["Avi"]),

@@ -12,7 +12,7 @@ List methods take a `filter` string in OData `$filter` syntax. An empty filter r
 | Kind | Syntax | Example |
 |---|---|---|
 | Compare | `eq`, `ne`, `gt`, `ge`, `lt`, `le` | `display_name eq 'Avi Cohen'` |
-| One of | `in` | `display_name in ('Avi', 'Noa')` |
+| One of | `in` | `display_name in ('Avi', 'Noa')`; one value takes a trailing comma: `display_name in ('Avi',)` |
 | Combine | `and`, `or`, `not`, parentheses | `email ne null and not (display_name eq 'Avi')` |
 | Text | `contains`, `startswith`, `endswith` | `startswith(display_name, 'Avi')` |
 | Missing value | `null` | `email eq null` |
