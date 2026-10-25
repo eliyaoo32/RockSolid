@@ -16,7 +16,7 @@ A project is a clone of RockSolid that keeps RockSolid's git history. RockSolid 
 - Docs: `docs/guides/`, `docs/features/FEATURE_TEMPLATE.md`, and RockSolid's own description in `.agents/skills/rocksolid/FRAMEWORK.md`
 - Tooling: `Makefile`, `buf.yaml`, `buf.lock`, `buf.gen.yaml`, `.github/workflows/`, `pnpm-workspace.yaml`
 - Backend: `src/backend/libs/`, `src/backend/modules/users/`, `src/backend/modules/conversations/`, `src/backend/executables/users_api/`, `src/backend/executables/conversations_api/`, `src/backend/deployables/BUILD`, `src/backend/deployables/tests/`, `src/protos/users/`, `src/protos/conversations/`
-- Clients: in `src/clients/web-app/` and `src/clients/wireframe/`, `vite.config.ts`, `tsconfig*.json`, `eslint.config.js`, `eslint-rules/`, `.prettierrc`, `components.json`, and `main.tsx`; and `src/clients/web-app/src/{auth,api}/`, `src/clients/web-app/src/config.ts`, and the files RockSolid ships in `src/clients/web-app/tests/framework/` (a project adds its own drivers beside them)
+- Clients: in `src/clients/web-app/` and `src/clients/wireframe/`, `vite.config.ts`, `tsconfig*.json`, `eslint.config.js`, `eslint-rules/`, `.prettierrc`, and `main.tsx`; and `src/clients/web-app/src/auth/`, `src/clients/web-app/src/config.ts`, and the files RockSolid ships in `src/clients/web-app/src/api/` and `src/clients/web-app/tests/framework/` (a project adds its own API hooks, drivers, and fakes beside them)
 - E2E tests: the files RockSolid ships in `src/tests/e2e/framework/` (a project adds its own drivers and fakes beside them, and a project with an agent copies `agents.py` from the `rocksolid` skill's examples); `src/tests/e2e/sign_in_test.py`, `src/tests/e2e/debug_user_test.py`, `src/tests/e2e/conversations_test.py`
 
 ### Shared: Edited by Both
@@ -27,6 +27,9 @@ An update resolves their conflicts as described below.
 - `src/backend/deployables/app/main.py`
 - `src/clients/web-app/src/App.tsx` and `src/clients/wireframe/src/App.tsx`
 - Both apps' `src/i18n/resources.ts`
+- Both apps' `components.json`, where a project sets shadcn's options, such as `rtl`
+- `src/clients/web-app/tests/framework/fake-services.ts`, which lists the project's fake services
+- `src/tests/e2e/conftest.py`, which registers the E2E fixtures
 - `src/clients/wireframe/README.md`
 
 ### Project: Edited Only in the Project
@@ -75,7 +78,7 @@ GitHub's "Use this template" starts a repository with no shared history, so late
 3. Resolve the conflicts in the shared files:
    - `requirements.txt`: keep the lines from both sides.
    - `default.lock`: take the framework's version (`git checkout --theirs 3rdparty/python/default.lock`). The next step regenerates it.
-   - `package.json`, `main.py`, `App.tsx`, and `resources.ts`: keep the dependencies, executables, routes, and keys from both sides.
+   - `package.json`, `main.py`, `App.tsx`, `resources.ts`, `components.json`, `fake-services.ts`, and `conftest.py`: keep the dependencies, executables, routes, keys, options, fakes, and fixtures from both sides.
    - `pnpm-lock.yaml`: take the framework's version (`git checkout --theirs pnpm-lock.yaml`). The next step regenerates it.
    - `pants.toml`, `pyproject.toml`, and `.gitignore`: keep both sides' changes, such as both sides' packages in `known-first-party`.
    - `README.md`: keep the project's version (`git checkout --ours README.md`). It describes the product, not RockSolid.

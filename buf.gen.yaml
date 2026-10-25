@@ -4,10 +4,11 @@ version: v2
 plugins:
   - remote: buf.build/bufbuild/py:v0.6.0
     out: src/generated/python
-    # Also generates the buf.validate rules our contracts import, imported as `buf.validate`
-    # rather than relatively, since each contract is its own top-level package.
+    # Also generates the buf.validate rules our contracts import. Every import, of buf.validate or
+    # of another contract (such as a project's shared contract), is absolute (`from shared.v1 import
+    # address_pb`), since each contract is its own top-level package.
     include_imports: true
-    opt: map_imports=buf/validate/:.
+    opt: map_imports=**:.
   - remote: buf.build/connectrpc/py:v0.12.1
     out: src/generated/python
   # Generates messages and service descriptors that Connect clients use; the version matches @bufbuild/protobuf.

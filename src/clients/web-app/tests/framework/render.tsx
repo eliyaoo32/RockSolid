@@ -18,7 +18,7 @@ import { FakeSignIn } from "./fake-sign-in"
 export function inApp({ signedInAs }: { signedInAs?: Account | null } = {}) {
   const signIn = new FakeSignIn(signedInAs)
   const queryClient = new QueryClient()
-  const backendCalls = fakeBackend()
+  const backend = fakeBackend()
   function wrapper({ children }: { children: ReactNode }) {
     return (
       <MemoryRouter>
@@ -32,7 +32,7 @@ export function inApp({ signedInAs }: { signedInAs?: Account | null } = {}) {
       </MemoryRouter>
     )
   }
-  return { signIn, queryClient, backendCalls, wrapper }
+  return { signIn, queryClient, backend, backendCalls: backend.calls, wrapper }
 }
 
 /** Renders one piece of the app inside everything the app gives it. */
