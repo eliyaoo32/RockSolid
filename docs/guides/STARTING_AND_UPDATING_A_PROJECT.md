@@ -12,7 +12,7 @@ A project is a clone of RockSolid that keeps RockSolid's git history. RockSolid 
 ## Who Owns Which Files
 
 ### Framework: Edited Only in RockSolid
-Every file RockSolid has, except the Shared and Project files below, is RockSolid's: `AGENTS.md`, `docs/guides/`, `.agents/`, `src/backend/libs/`, the users and conversations modules, their executables and contracts, the tooling, the clients' configuration and sign-in, and the framework's tests among them. The `Makefile`'s `PROJECT_FILES` lists the RockSolid files a project may change, and `FRAMEWORK_FOLDERS` the RockSolid folders a project adds no file to. `make verify` fails in a project when any other RockSolid file differs from RockSolid at the branch in the project's `framework-ref` file, or at `main` without it. A project adds its own skills, generated code, API hooks, test drivers, and fakes beside RockSolid's, and a project with an agent copies `agents.py` from the `rocksolid` skill's examples into `src/tests/e2e/framework/`.
+`.github/framework-files` lists RockSolid's files and folders: `AGENTS.md`, the tooling, `.github/`, RockSolid's skills, `docs/guides/`, `src/backend/libs/`, the users and conversations modules, their executables and contracts, the generated code, sign-in, and the framework's test drivers. A project adds its own files beside them, such as its skills, generated code, API hooks, test drivers, and fakes. CI fails a project's pull request that changes or deletes one of RockSolid's files, unless the owner labels it `framework-update`.
 
 ### Shared: Edited by Both
 An update resolves their conflicts as described below.
@@ -91,7 +91,7 @@ GitHub's "Use this template" starts a repository with no shared history, so late
    ```bash
    make verify
    ```
-6. Commit the merge, push the branch, and open a pull request. The description names the framework commit the project now matches (`git rev-parse --short framework/main`).
+6. Commit the merge, push the branch, and open a pull request. The description names the framework commit the project now matches (`git rev-parse --short framework/main`). The owner labels it `framework-update` so CI accepts RockSolid's files.
 
 ## Change the Framework From a Project
 
@@ -118,26 +118,20 @@ A project that needs a fix or a feature in a framework file makes it in RockSoli
    ```bash
    gh pr create --repo eliyaoo32/RockSolid --base main --head <branch>
    ```
-4. To use the change before it merges, merge the RockSolid branch into the project's branch, never cherry-pick it, and write the branch's name in `framework-ref`, so `make verify` compares RockSolid's files with that branch:
+4. To use the change before it merges, merge the RockSolid branch into the project's branch, never cherry-pick it:
    ```bash
    git fetch framework
    ```
    ```bash
    git merge framework/<branch>
    ```
-   ```bash
-   echo <branch> > framework-ref
-   ```
-   The project's pull request names the RockSolid pull request it uses, and stays open until that one merges.
-5. After the owner merges the RockSolid pull request, merge RockSolid's `main` into the project's branch and delete `framework-ref`, so `make verify` compares with `main` again. RockSolid squash-merges, so `main` brings the same change again: identical changes merge cleanly, and a file the review changed takes RockSolid's version. Then the project's pull request can merge.
+   The project's pull request names the RockSolid pull request it uses, and the owner labels it `framework-update` so CI accepts RockSolid's files. It stays open until the RockSolid pull request merges.
+5. After the owner merges the RockSolid pull request, merge RockSolid's `main` into the project's branch. RockSolid squash-merges, so `main` brings the same change again: identical changes merge cleanly, and a file the review changed takes RockSolid's version. Then the project's pull request can merge.
    ```bash
    git fetch framework
    ```
    ```bash
    git merge framework/main
-   ```
-   ```bash
-   git rm framework-ref
    ```
 6. Remove the worktree:
    ```bash
