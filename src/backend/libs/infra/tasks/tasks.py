@@ -133,6 +133,9 @@ class PostgresTaskQueue:
         """Runs the handler's next due task. Returns None when it ran or failed one, or when to
         look again: when a retry is due, or when new tasks may have arrived."""
         task_type = task_type_of(handler.task)
+        # One reading of the clock per look, so a retry that falls due during the look is either
+        # due now or the next look's time, never neither.
+        now = self._now()
         async with self._database.begin() as connection:
             task = (
                 await connection.execute(
@@ -141,11 +144,11 @@ class PostgresTaskQueue:
                         " WHERE type = :type AND (retry_at IS NULL OR retry_at <= :now)"
                         " ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED"
                     ),
-                    {"type": task_type, "now": self._now()},
+                    {"type": task_type, "now": now},
                 )
             ).one_or_none()
             if task is None:
-                return await self._next_look(connection, task_type)
+                return await self._next_look(connection, task_type, now)
             token = request_id.set(task.request_id or f"task-{task_type}-{task.id}")
             try:
                 await handler.handle(handler.task.model_validate_json(task.payload))
@@ -167,7 +170,9 @@ class PostgresTaskQueue:
             )
             return None
 
-    async def _next_look(self, connection: AsyncConnection, task_type: str) -> datetime:
+    async def _next_look(
+        self, connection: AsyncConnection, task_type: str, now: datetime
+    ) -> datetime:
         """When the type's next retry is due, or when new tasks may have arrived, whichever
         comes first."""
         next_retry = (
@@ -175,10 +180,10 @@ class PostgresTaskQueue:
                 text(
                     "SELECT min(retry_at) FROM tasks.queue WHERE type = :type AND retry_at > :now"
                 ),
-                {"type": task_type, "now": self._now()},
+                {"type": task_type, "now": now},
             )
         ).scalar()
-        poll = self._now() + POLL
+        poll = now + POLL
         return poll if next_retry is None else min(next_retry, poll)
 
     async def _record_failure(

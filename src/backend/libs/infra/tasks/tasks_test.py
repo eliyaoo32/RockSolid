@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any, ClassVar
 
@@ -90,6 +90,22 @@ class Handled:
         await asyncio.Event().wait()  # Runs until the test crashes its consumer.
 
 
+class JumpingClock:
+    """The test's clock, which moves forward right after its next read once a test sets
+    `jump`: time passing between two reads of the clock."""
+
+    def __init__(self, time: FakeTime) -> None:
+        self.time = time
+        self.jump: timedelta | None = None
+
+    def __call__(self) -> datetime:
+        now = self.time()
+        if self.jump is not None:
+            self.time.advance(self.jump)
+            self.jump = None
+        return now
+
+
 class Queue:
     def __init__(self, database: AsyncEngine) -> None:
         self.database = database
@@ -104,9 +120,13 @@ class Queue:
             TaskHandler(PrintBadge, self.handled.print_badge),
         ]
 
-    def start(self, handlers: Sequence[TaskHandler[Any]] | None = None) -> asyncio.Task[None]:
+    def start(
+        self,
+        handlers: Sequence[TaskHandler[Any]] | None = None,
+        clock: Callable[[], datetime] | None = None,
+    ) -> asyncio.Task[None]:
         consumer = asyncio.create_task(
-            PostgresTaskQueue(self.database, self.time, self.time.wait).run(
+            PostgresTaskQueue(self.database, clock or self.time, self.time.wait).run(
                 handlers or self.handlers(), self.stop
             )
         )
@@ -219,6 +239,27 @@ async def test_parks_a_task_once_its_retry_strategy_stops(
     assert "cannot invite Avi" in str(parked_task[0][4])
     assert await queue.rows("SELECT id FROM tasks.queue") == []
     assert "task 1 of type tests.SendInvite parked after 2 attempts" in caplog.text
+
+
+async def test_runs_a_retry_that_falls_due_while_the_queue_looks_for_work(queue: Queue) -> None:
+    clock = JumpingClock(queue.time)
+    queue.start(
+        [TaskHandler(SendInvite, queue.handled.send_invite, Constant(30, attempts=3))], clock
+    )
+    queue.handled.failing.add("Avi")
+    await queue.enqueue(SendInvite(name="Avi"))
+
+    async def failed_once() -> bool:
+        return await queue.rows("SELECT attempts FROM tasks.queue") == [(1,)]
+
+    await eventually(failed_once)
+    queue.handled.failing.clear()
+    clock.jump = timedelta(seconds=30)
+    async with queue.database.begin() as connection:
+        # Wakes the queue to look for work; its retry falls due in the middle of the look.
+        await connection.execute(text("SELECT pg_notify('tasks', '')"))
+
+    await eventually(lambda: queue.handled.invites == ["Avi"])
 
 
 async def test_parks_at_once_when_the_handler_says_retrying_cannot_help(queue: Queue) -> None:

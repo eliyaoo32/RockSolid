@@ -12,21 +12,19 @@ A project is a clone of RockSolid that keeps RockSolid's git history. RockSolid 
 ## Who Owns Which Files
 
 ### Framework: Edited Only in RockSolid
-- Agent guidance: `AGENTS.md` (and `CLAUDE.md`, its link), `.agents/`, `.claude/`, `.pi/`
-- Docs: `docs/guides/`, `docs/features/FEATURE_TEMPLATE.md`, and RockSolid's own description in `.agents/skills/rocksolid/FRAMEWORK.md`
-- Tooling: `Makefile`, `buf.yaml`, `buf.lock`, `buf.gen.yaml`, `.github/workflows/`, `pnpm-workspace.yaml`
-- Backend: `src/backend/libs/`, `src/backend/modules/users/`, `src/backend/modules/conversations/`, `src/backend/executables/users_api/`, `src/backend/executables/conversations_api/`, `src/backend/deployables/BUILD`, `src/backend/deployables/tests/`, `src/protos/users/`, `src/protos/conversations/`
-- Clients: in `src/clients/web-app/` and `src/clients/wireframe/`, `vite.config.ts`, `tsconfig*.json`, `eslint.config.js`, `eslint-rules/`, `.prettierrc`, `components.json`, and `main.tsx`; and `src/clients/web-app/src/{auth,api}/`, `src/clients/web-app/src/config.ts`, and the files RockSolid ships in `src/clients/web-app/tests/framework/` (a project adds its own drivers beside them)
-- E2E tests: the files RockSolid ships in `src/tests/e2e/framework/` (a project adds its own drivers and fakes beside them, and a project with an agent copies `agents.py` from the `rocksolid` skill's examples); `src/tests/e2e/sign_in_test.py`, `src/tests/e2e/debug_user_test.py`, `src/tests/e2e/conversations_test.py`
+`.github/framework-files` lists RockSolid's files and folders: `AGENTS.md`, the tooling, `.github/`, RockSolid's skills, `docs/guides/`, `src/backend/libs/`, the users and conversations modules, their executables and contracts, the generated code, sign-in, and the framework's test drivers. A project adds its own files beside them, such as its skills, generated code, API hooks, test drivers, and fakes. CI fails a project's pull request whose diff changes or deletes one of RockSolid's files, even when the file is identical to RockSolid's, and nothing lets it through. A project's pull request holds only the project's own work.
 
 ### Shared: Edited by Both
 An update resolves their conflicts as described below.
 - `3rdparty/python/requirements.txt` and `3rdparty/python/default.lock`
-- `pants.toml`, `pyproject.toml`, and `.gitignore`
+- `pants.toml`, `pyproject.toml`, `skills-lock.json`, `.env.development`, and every `.gitignore`
 - Every `package.json`, and `pnpm-lock.yaml`
-- `src/backend/deployables/app/main.py`
-- `src/clients/web-app/src/App.tsx` and `src/clients/wireframe/src/App.tsx`
+- `src/backend/deployables/app/`
+- `src/clients/web-app/src/App.tsx`, its test, and `src/clients/wireframe/src/App.tsx`
 - Both apps' `src/i18n/resources.ts`
+- Both apps' `components.json`, where a project sets shadcn's options, such as `rtl`
+- `src/clients/web-app/tests/framework/fake-services.ts`, which lists the project's fake services
+- `src/tests/e2e/conftest.py`, which registers the E2E fixtures
 - `src/clients/wireframe/README.md`
 
 ### Project: Edited Only in the Project
@@ -34,8 +32,8 @@ An update resolves their conflicts as described below.
 - `docs/features/<NNN>_*.md`
 - `src/protos/<module>/` and `src/generated/`
 - `src/backend/modules/<module>/`, the other `src/backend/executables/`, and the rest of `src/backend/deployables/`
-- The rest of `src/clients/web-app/` and `src/clients/wireframe/`
-- The other tests in `src/tests/e2e/`
+- In both apps, `index.html`, `.prettierignore`, `src/components/`, `src/views/`, `src/i18n/`, `src/lib/`, and `src/index.css`; and `src/clients/web-app/tests/`, outside RockSolid's files in `tests/framework/`
+- `src/tests/e2e/BUILD` and the other tests in `src/tests/e2e/`
 
 ## Start a Project
 
@@ -75,7 +73,7 @@ GitHub's "Use this template" starts a repository with no shared history, so late
 3. Resolve the conflicts in the shared files:
    - `requirements.txt`: keep the lines from both sides.
    - `default.lock`: take the framework's version (`git checkout --theirs 3rdparty/python/default.lock`). The next step regenerates it.
-   - `package.json`, `main.py`, `App.tsx`, and `resources.ts`: keep the dependencies, executables, routes, and keys from both sides.
+   - `package.json`, `main.py`, `App.tsx`, `resources.ts`, `components.json`, `fake-services.ts`, and `conftest.py`: keep the dependencies, executables, routes, keys, options, fakes, and fixtures from both sides.
    - `pnpm-lock.yaml`: take the framework's version (`git checkout --theirs pnpm-lock.yaml`). The next step regenerates it.
    - `pants.toml`, `pyproject.toml`, and `.gitignore`: keep both sides' changes, such as both sides' packages in `known-first-party`.
    - `README.md`: keep the project's version (`git checkout --ours README.md`). It describes the product, not RockSolid.
@@ -93,7 +91,7 @@ GitHub's "Use this template" starts a repository with no shared history, so late
    ```bash
    make verify
    ```
-6. Commit the merge, push the branch, and open a pull request. The description names the framework commit the project now matches (`git rev-parse --short framework/main`).
+6. Commit the merge, push the branch, and open a pull request. The description names the framework commit the project now matches (`git rev-parse --short framework/main`). This pull request changes RockSolid's files, so the check fails on it; the owner reviews and merges it.
 
 ## Change the Framework From a Project
 
@@ -120,8 +118,22 @@ A project that needs a fix or a feature in a framework file makes it in RockSoli
    ```bash
    gh pr create --repo eliyaoo32/RockSolid --base main --head <branch>
    ```
-4. After the owner merges it, the project takes it with its next update. A project that cannot wait merges the branch itself (`git merge framework/<branch>`), never cherry-picks it. RockSolid squash-merges, so the next update brings the same change again: identical changes merge cleanly, and a file the review changed takes the framework's version.
-5. Remove the worktree:
+4. To use the change before it merges, merge the RockSolid branch into the project's branch, never cherry-pick it:
+   ```bash
+   git fetch framework
+   ```
+   ```bash
+   git merge framework/<branch>
+   ```
+   The project's pull request names the RockSolid pull request it uses. Its diff now holds RockSolid's files, so CI fails on it until step 5.
+5. After the owner merges the RockSolid pull request, update the project's `main` with RockSolid's `main` (Update a Project). RockSolid squash-merges, so the update brings the same change again: identical changes merge cleanly, and a file the review changed takes RockSolid's version. Then merge the project's `main` into the project's branch. RockSolid's files leave its diff, and CI passes.
+   ```bash
+   git fetch origin
+   ```
+   ```bash
+   git merge origin/main
+   ```
+6. Remove the worktree:
    ```bash
    git worktree remove ../<project>-framework
    ```

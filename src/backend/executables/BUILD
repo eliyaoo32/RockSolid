@@ -1,10 +1,13 @@
 # Import rules for every executable, written once. An executable uses modules through their
-# services and the domain types they return, and never imports another executable.
+# services and the domain types they return, and never imports another executable; only its tests
+# do, to run a feature that spans executables together.
 __dependencies_rules__(
     (
         "/*/tests/framework/**",
         "./*",
         "../../*.py",
+        # Other executables, for a feature that spans executables (`run_executables([...])`).
+        "//src/backend/executables/*/*.py",
         "//src/backend/modules/*/services/**",
         "//src/backend/modules/*/domain/**",
         "//src/generated/**",
@@ -17,6 +20,7 @@ __dependencies_rules__(
     (
         "/*/tests/**",
         "./**",
+        "//src/backend/executables/*/*.py",
         "//src/backend/modules/*/services/**",
         "//src/backend/modules/*/domain/**",
         "//src/generated/**",

@@ -3,7 +3,8 @@
 ag-ui-protocol
 alembic
 asyncpg
-connectrpc
+# The newest buf.build/connectrpc/py plugin generates code for 0.12.1; move both together.
+connectrpc==0.12.1
 croniter
 cryptography
 greenlet

@@ -4,7 +4,7 @@ real model would make, and answers with what the tool returned."""
 import json
 from collections.abc import AsyncIterator
 
-from pydantic_ai.messages import ModelMessage, RetryPromptPart, ToolReturnPart, UserPromptPart
+from pydantic_ai.messages import ModelMessage, ToolReturnPart, UserPromptPart
 from pydantic_ai.models.function import AgentInfo, DeltaToolCall, DeltaToolCalls, FunctionModel
 
 
@@ -14,10 +14,10 @@ async def _answer(
     """`list <filter>` lists clients, and `add <name> | <email>` adds one. A tool's result or
     complaint becomes the answer."""
     last = messages[-1].parts[-1]
-    if isinstance(last, ToolReturnPart):
+    if isinstance(last, ToolReturnPart) and last.outcome == "retried":
+        yield f"Could not: {last.model_response_str(wrap_if_error=False)}"
+    elif isinstance(last, ToolReturnPart):
         yield f"Done: {last.model_response_str()}"
-    elif isinstance(last, RetryPromptPart):
-        yield f"Could not: {last.model_response()}"
     else:
         assert isinstance(last, UserPromptPart), "a run starts from the user's message"
         command, _, rest = str(last.content).partition(" ")

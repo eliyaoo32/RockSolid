@@ -20,7 +20,7 @@ export function renderApp({
   signedInAs,
 }: { path?: string; signedInAs?: Account | null } = {}) {
   const signIn = new FakeSignIn(signedInAs)
-  fakeBackend()
+  const backend = fakeBackend()
   let pathname = path
   function TrackPath() {
     pathname = useLocation().pathname
@@ -44,6 +44,8 @@ export function renderApp({
   }
 
   return {
+    // The backend's fakes, to read or change their state: `backend.fake(FakeUsers)`.
+    backend,
     when: {
       signInStateArrives: (signedInAs: Account | null) => {
         act(() => {

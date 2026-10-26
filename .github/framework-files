@@ -1,0 +1,31 @@
+# RockSolid's files and folders, as git pathspecs. A project's pull request fails CI when its diff
+# changes or deletes a file here, even to RockSolid's own content (.github/workflows/framework-files.yml). A project adds its own files beside them.
+AGENTS.md
+CLAUDE.md
+Makefile
+buf.yaml
+buf.lock
+buf.gen.yaml
+compose.yaml
+pants.ci.toml
+pnpm-workspace.yaml
+.github
+.agents/skills/rocksolid
+.agents/skills/api-design
+.agents/skills/filtering
+docs/guides
+docs/features/FEATURE_TEMPLATE.md
+src/backend/libs
+src/backend/modules/users
+src/backend/modules/conversations
+src/backend/executables/users_api
+src/backend/executables/conversations_api
+src/backend/deployables/tests
+src/protos/users
+src/protos/conversations
+src/generated
+src/clients/web-app/src/auth
+src/clients/web-app/src/api
+src/clients/web-app/tests/framework
+:(exclude)src/clients/web-app/tests/framework/fake-services.ts
+src/tests/e2e/framework
