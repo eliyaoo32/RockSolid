@@ -37,8 +37,12 @@ framework-files:
 	changed=$$( { git diff --name-only FETCH_HEAD -- $(FRAMEWORK_FILES); \
 		git diff --name-only --diff-filter=MD FETCH_HEAD -- $(FRAMEWORK_FOLDERS); } | sort -u ); \
 	if [ -n "$$changed" ]; then \
-		echo "These RockSolid files differ from RockSolid's $$ref. Change them in RockSolid, never here:"; \
-		echo "$$changed"; exit 1; \
+		echo "This project changed RockSolid's files, which change only in RockSolid:"; \
+		echo "$$changed" | sed 's/^/  /'; \
+		echo "Undo these changes here. To change them, follow \"Change the Framework From a Project\" in"; \
+		echo "docs/guides/STARTING_AND_UPDATING_A_PROJECT.md: open a RockSolid pull request, and use it here before it merges."; \
+		echo "(Compared with RockSolid's $$ref, the branch in framework-ref, or main without that file.)"; \
+		exit 1; \
 	fi
 
 # Runs the verification command with the rocksolid skill's examples in src/, on a copy of the working
