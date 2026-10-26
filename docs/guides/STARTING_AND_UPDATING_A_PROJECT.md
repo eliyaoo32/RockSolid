@@ -12,12 +12,13 @@ A project is a clone of RockSolid that keeps RockSolid's git history. RockSolid 
 ## Who Owns Which Files
 
 ### Framework: Edited Only in RockSolid
+The `Makefile`'s `FRAMEWORK_FILES` and `FRAMEWORK_FOLDERS` list them exactly. `make verify` fails in a project when one differs from RockSolid at the branch in the project's `framework-ref` file, or at `main` without it.
 - Agent guidance: `AGENTS.md` (and `CLAUDE.md`, its link), `.agents/`, `.claude/`, `.pi/`
 - Docs: `docs/guides/`, `docs/features/FEATURE_TEMPLATE.md`, and RockSolid's own description in `.agents/skills/rocksolid/FRAMEWORK.md`
 - Tooling: `Makefile`, `buf.yaml`, `buf.lock`, `buf.gen.yaml`, `.github/workflows/`, `pnpm-workspace.yaml`
-- Backend: `src/backend/libs/`, `src/backend/modules/users/`, `src/backend/modules/conversations/`, `src/backend/executables/users_api/`, `src/backend/executables/conversations_api/`, `src/backend/deployables/BUILD`, `src/backend/deployables/tests/`, `src/protos/users/`, `src/protos/conversations/`
+- Backend: `src/backend/libs/`, `src/backend/modules/BUILD`, `src/backend/modules/users/`, `src/backend/modules/conversations/`, `src/backend/executables/BUILD`, `src/backend/executables/users_api/`, `src/backend/executables/conversations_api/`, `src/backend/deployables/BUILD`, `src/backend/deployables/tests/`, `src/protos/users/`, `src/protos/conversations/`
 - Clients: in `src/clients/web-app/` and `src/clients/wireframe/`, `vite.config.ts`, `tsconfig*.json`, `eslint.config.js`, `eslint-rules/`, `.prettierrc`, and `main.tsx`; and `src/clients/web-app/src/auth/`, `src/clients/web-app/src/config.ts`, and the files RockSolid ships in `src/clients/web-app/src/api/` and `src/clients/web-app/tests/framework/` (a project adds its own API hooks, drivers, and fakes beside them)
-- E2E tests: the files RockSolid ships in `src/tests/e2e/framework/` (a project adds its own drivers and fakes beside them, and a project with an agent copies `agents.py` from the `rocksolid` skill's examples); `src/tests/e2e/sign_in_test.py`, `src/tests/e2e/debug_user_test.py`, `src/tests/e2e/conversations_test.py`
+- E2E tests: the files RockSolid ships in `src/tests/e2e/framework/` (a project adds its own drivers and fakes beside them, and a project with an agent copies `agents.py` from the `rocksolid` skill's examples); `src/tests/e2e/sign_in_test.py`, `src/tests/e2e/debug_user_test.py`, `src/tests/e2e/display_name_test.py`, `src/tests/e2e/conversations_test.py`
 
 ### Shared: Edited by Both
 An update resolves their conflicts as described below.
@@ -123,8 +124,28 @@ A project that needs a fix or a feature in a framework file makes it in RockSoli
    ```bash
    gh pr create --repo eliyaoo32/RockSolid --base main --head <branch>
    ```
-4. After the owner merges it, the project takes it with its next update. A project that cannot wait merges the branch itself (`git merge framework/<branch>`), never cherry-picks it. RockSolid squash-merges, so the next update brings the same change again: identical changes merge cleanly, and a file the review changed takes the framework's version.
-5. Remove the worktree:
+4. To use the change before it merges, merge the RockSolid branch into the project's branch, never cherry-pick it, and write the branch's name in `framework-ref`, so `make verify` compares RockSolid's files with that branch:
+   ```bash
+   git fetch framework
+   ```
+   ```bash
+   git merge framework/<branch>
+   ```
+   ```bash
+   echo <branch> > framework-ref
+   ```
+   The project's pull request names the RockSolid pull request it uses, and stays open until that one merges.
+5. After the owner merges the RockSolid pull request, merge RockSolid's `main` into the project's branch and delete `framework-ref`, so `make verify` compares with `main` again. RockSolid squash-merges, so `main` brings the same change again: identical changes merge cleanly, and a file the review changed takes RockSolid's version. Then the project's pull request can merge.
+   ```bash
+   git fetch framework
+   ```
+   ```bash
+   git merge framework/main
+   ```
+   ```bash
+   git rm framework-ref
+   ```
+6. Remove the worktree:
    ```bash
    git worktree remove ../<project>-framework
    ```

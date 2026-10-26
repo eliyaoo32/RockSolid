@@ -1,9 +1,45 @@
 # `make verify` is the single verification command: a change is done only when it passes.
 
-.PHONY: verify verify-examples contracts generated generate web e2e e2e-frontend dev dev-backend dev-frontend
+.PHONY: verify verify-examples framework-files contracts generated generate web e2e e2e-frontend dev dev-backend dev-frontend
 
-verify: contracts generated web e2e-frontend
+verify: framework-files contracts generated web e2e-frontend
 	pants verify ::
+
+# RockSolid's files. A project never changes them: `make verify` fails when one differs from RockSolid
+# at the branch in the project's `framework-ref` file (`main` without the file). RockSolid skips it.
+# Whole paths: the project adds nothing inside them either.
+FRAMEWORK_FILES = AGENTS.md CLAUDE.md Makefile buf.yaml buf.lock buf.gen.yaml pnpm-workspace.yaml \
+	.github/workflows docs/guides docs/features/FEATURE_TEMPLATE.md \
+	src/backend/libs src/backend/modules/BUILD src/backend/modules/users src/backend/modules/conversations \
+	src/backend/executables/BUILD src/backend/executables/users_api src/backend/executables/conversations_api \
+	src/backend/deployables/BUILD src/backend/deployables/tests \
+	src/protos/users src/protos/conversations \
+	src/clients/web-app/vite.config.ts src/clients/web-app/tsconfig.json src/clients/web-app/tsconfig.app.json \
+	src/clients/web-app/tsconfig.node.json src/clients/web-app/eslint.config.js src/clients/web-app/eslint-rules \
+	src/clients/web-app/.prettierrc src/clients/web-app/src/main.tsx src/clients/web-app/src/config.ts \
+	src/clients/web-app/src/auth \
+	src/clients/wireframe/vite.config.ts src/clients/wireframe/tsconfig.json src/clients/wireframe/tsconfig.app.json \
+	src/clients/wireframe/tsconfig.node.json src/clients/wireframe/eslint.config.js src/clients/wireframe/eslint-rules \
+	src/clients/wireframe/.prettierrc src/clients/wireframe/src/main.tsx \
+	src/tests/e2e/sign_in_test.py src/tests/e2e/debug_user_test.py src/tests/e2e/display_name_test.py \
+	src/tests/e2e/conversations_test.py
+# Folders that hold RockSolid's files and the project's own files beside them: RockSolid's files stay
+# as they are, and the project adds its own, such as its skills, generated code, and test drivers.
+FRAMEWORK_FOLDERS = .agents .claude .pi src/generated src/clients/web-app/src/api \
+	src/clients/web-app/tests/framework src/tests/e2e/framework \
+	':(exclude)src/clients/web-app/tests/framework/fake-services.ts'
+FRAMEWORK_REPOSITORY = https://github.com/eliyaoo32/RockSolid.git
+
+framework-files:
+	@if ! git rev-parse --git-dir > /dev/null 2>&1 || git remote get-url origin 2>/dev/null | grep -q 'eliyaoo32/RockSolid'; then exit 0; fi; \
+	ref=$$(cat framework-ref 2>/dev/null || echo main); \
+	git fetch --quiet --depth=1 $(FRAMEWORK_REPOSITORY) "$$ref" || exit 1; \
+	changed=$$( { git diff --name-only FETCH_HEAD -- $(FRAMEWORK_FILES); \
+		git diff --name-only --diff-filter=MD FETCH_HEAD -- $(FRAMEWORK_FOLDERS); } | sort -u ); \
+	if [ -n "$$changed" ]; then \
+		echo "These RockSolid files differ from RockSolid's $$ref. Change them in RockSolid, never here:"; \
+		echo "$$changed"; exit 1; \
+	fi
 
 # Runs the verification command with the rocksolid skill's examples in src/, on a copy of the working
 # tree (its committed, changed, and new files) that is deleted afterwards. Only RockSolid runs it.
