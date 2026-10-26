@@ -1,15 +1,14 @@
-# Fails a project's pull request that changes or deletes a file .github/framework-files lists: those
-# change only in RockSolid. A pull request that takes RockSolid's changes passes with the owner's
-# `framework-update` label. RockSolid itself skips it.
+# Fails a project's pull request whose diff contains a file .github/framework-files lists, even one
+# identical to RockSolid's, with no exception: those change only in RockSolid. It passes once the
+# project's main has RockSolid's update. RockSolid itself skips it.
 name: framework-files
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 jobs:
   framework-files:
-    if: github.repository != 'eliyaoo32/RockSolid' && !contains(github.event.pull_request.labels.*.name, 'framework-update')
+    if: github.repository != 'eliyaoo32/RockSolid'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

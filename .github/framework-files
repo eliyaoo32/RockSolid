@@ -1,5 +1,5 @@
-# RockSolid's files and folders, as git pathspecs. A project's pull request fails CI when it changes or
-# deletes a file here (.github/workflows/framework-files.yml). A project adds its own files beside them.
+# RockSolid's files and folders, as git pathspecs. A project's pull request fails CI when its diff
+# changes or deletes a file here, even to RockSolid's own content (.github/workflows/framework-files.yml). A project adds its own files beside them.
 AGENTS.md
 CLAUDE.md
 Makefile
