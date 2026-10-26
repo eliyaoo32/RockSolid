@@ -12,21 +12,15 @@ A project is a clone of RockSolid that keeps RockSolid's git history. RockSolid 
 ## Who Owns Which Files
 
 ### Framework: Edited Only in RockSolid
-The `Makefile`'s `FRAMEWORK_FILES` and `FRAMEWORK_FOLDERS` list them exactly. `make verify` fails in a project when one differs from RockSolid at the branch in the project's `framework-ref` file, or at `main` without it.
-- Agent guidance: `AGENTS.md` (and `CLAUDE.md`, its link), `.agents/`, `.claude/`, `.pi/`
-- Docs: `docs/guides/`, `docs/features/FEATURE_TEMPLATE.md`, and RockSolid's own description in `.agents/skills/rocksolid/FRAMEWORK.md`
-- Tooling: `Makefile`, `buf.yaml`, `buf.lock`, `buf.gen.yaml`, `.github/workflows/`, `pnpm-workspace.yaml`
-- Backend: `src/backend/libs/`, `src/backend/modules/BUILD`, `src/backend/modules/users/`, `src/backend/modules/conversations/`, `src/backend/executables/BUILD`, `src/backend/executables/users_api/`, `src/backend/executables/conversations_api/`, `src/backend/deployables/BUILD`, `src/backend/deployables/tests/`, `src/protos/users/`, `src/protos/conversations/`
-- Clients: in `src/clients/web-app/` and `src/clients/wireframe/`, `vite.config.ts`, `tsconfig*.json`, `eslint.config.js`, `eslint-rules/`, `.prettierrc`, and `main.tsx`; and `src/clients/web-app/src/auth/`, `src/clients/web-app/src/config.ts`, and the files RockSolid ships in `src/clients/web-app/src/api/` and `src/clients/web-app/tests/framework/` (a project adds its own API hooks, drivers, and fakes beside them)
-- E2E tests: the files RockSolid ships in `src/tests/e2e/framework/` (a project adds its own drivers and fakes beside them, and a project with an agent copies `agents.py` from the `rocksolid` skill's examples); `src/tests/e2e/sign_in_test.py`, `src/tests/e2e/debug_user_test.py`, `src/tests/e2e/display_name_test.py`, `src/tests/e2e/conversations_test.py`
+Every file RockSolid has, except the Shared and Project files below, is RockSolid's: `AGENTS.md`, `docs/guides/`, `.agents/`, `src/backend/libs/`, the users and conversations modules, their executables and contracts, the tooling, the clients' configuration and sign-in, and the framework's tests among them. The `Makefile`'s `PROJECT_FILES` lists the RockSolid files a project may change, and `FRAMEWORK_FOLDERS` the RockSolid folders a project adds no file to. `make verify` fails in a project when any other RockSolid file differs from RockSolid at the branch in the project's `framework-ref` file, or at `main` without it. A project adds its own skills, generated code, API hooks, test drivers, and fakes beside RockSolid's, and a project with an agent copies `agents.py` from the `rocksolid` skill's examples into `src/tests/e2e/framework/`.
 
 ### Shared: Edited by Both
 An update resolves their conflicts as described below.
 - `3rdparty/python/requirements.txt` and `3rdparty/python/default.lock`
-- `pants.toml`, `pyproject.toml`, and `.gitignore`
+- `pants.toml`, `pyproject.toml`, `skills-lock.json`, `.env.development`, and every `.gitignore`
 - Every `package.json`, and `pnpm-lock.yaml`
-- `src/backend/deployables/app/main.py`
-- `src/clients/web-app/src/App.tsx` and `src/clients/wireframe/src/App.tsx`
+- `src/backend/deployables/app/`
+- `src/clients/web-app/src/App.tsx`, its test, and `src/clients/wireframe/src/App.tsx`
 - Both apps' `src/i18n/resources.ts`
 - Both apps' `components.json`, where a project sets shadcn's options, such as `rtl`
 - `src/clients/web-app/tests/framework/fake-services.ts`, which lists the project's fake services
@@ -38,8 +32,8 @@ An update resolves their conflicts as described below.
 - `docs/features/<NNN>_*.md`
 - `src/protos/<module>/` and `src/generated/`
 - `src/backend/modules/<module>/`, the other `src/backend/executables/`, and the rest of `src/backend/deployables/`
-- The rest of `src/clients/web-app/` and `src/clients/wireframe/`
-- The other tests in `src/tests/e2e/`
+- In both apps, `index.html`, `.prettierignore`, `src/components/`, `src/views/`, `src/i18n/`, `src/lib/`, and `src/index.css`; and `src/clients/web-app/tests/`, outside RockSolid's files in `tests/framework/`
+- `src/tests/e2e/BUILD` and the other tests in `src/tests/e2e/`
 
 ## Start a Project
 

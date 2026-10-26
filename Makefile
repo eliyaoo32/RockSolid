@@ -5,37 +5,35 @@
 verify: framework-files contracts generated web e2e-frontend
 	pants verify ::
 
-# RockSolid's files. A project never changes them: `make verify` fails when one differs from RockSolid
-# at the branch in the project's `framework-ref` file (`main` without the file). RockSolid skips it.
-# Whole paths: the project adds nothing inside them either.
-FRAMEWORK_FILES = AGENTS.md CLAUDE.md Makefile buf.yaml buf.lock buf.gen.yaml pnpm-workspace.yaml \
-	.github/workflows docs/guides docs/features/FEATURE_TEMPLATE.md \
-	src/backend/libs src/backend/modules/BUILD src/backend/modules/users src/backend/modules/conversations \
-	src/backend/executables/BUILD src/backend/executables/users_api src/backend/executables/conversations_api \
-	src/backend/deployables/BUILD src/backend/deployables/tests \
-	src/protos/users src/protos/conversations \
-	src/clients/web-app/vite.config.ts src/clients/web-app/tsconfig.json src/clients/web-app/tsconfig.app.json \
-	src/clients/web-app/tsconfig.node.json src/clients/web-app/eslint.config.js src/clients/web-app/eslint-rules \
-	src/clients/web-app/.prettierrc src/clients/web-app/src/main.tsx src/clients/web-app/src/config.ts \
-	src/clients/web-app/src/auth \
-	src/clients/wireframe/vite.config.ts src/clients/wireframe/tsconfig.json src/clients/wireframe/tsconfig.app.json \
-	src/clients/wireframe/tsconfig.node.json src/clients/wireframe/eslint.config.js src/clients/wireframe/eslint-rules \
-	src/clients/wireframe/.prettierrc src/clients/wireframe/src/main.tsx \
-	src/tests/e2e/sign_in_test.py src/tests/e2e/debug_user_test.py src/tests/e2e/display_name_test.py \
-	src/tests/e2e/conversations_test.py
-# Folders that hold RockSolid's files and the project's own files beside them: RockSolid's files stay
-# as they are, and the project adds its own, such as its skills, generated code, and test drivers.
-FRAMEWORK_FOLDERS = .agents .claude .pi src/generated src/clients/web-app/src/api \
-	src/clients/web-app/tests/framework src/tests/e2e/framework \
-	':(exclude)src/clients/web-app/tests/framework/fake-services.ts'
+# RockSolid's files a project may change: the Shared and Project files in
+# docs/guides/STARTING_AND_UPDATING_A_PROJECT.md. Every other file RockSolid has is RockSolid's: `make verify`
+# fails in a project when one differs from RockSolid at the branch in the project's `framework-ref` file
+# (`main` without the file). RockSolid skips it.
+PROJECT_FILES = .env.development .gitignore README.md package.json pnpm-lock.yaml pants.toml pyproject.toml \
+	skills-lock.json 3rdparty/python/requirements.txt 3rdparty/python/default.lock src/backend/deployables/app \
+	src/clients/web-app/.gitignore src/clients/web-app/.prettierignore src/clients/web-app/index.html \
+	src/clients/web-app/package.json src/clients/web-app/components.json src/clients/web-app/src/App.tsx \
+	src/clients/web-app/src/App.test.tsx src/clients/web-app/src/components src/clients/web-app/src/views \
+	src/clients/web-app/src/i18n src/clients/web-app/src/index.css src/clients/web-app/src/lib \
+	src/clients/web-app/tests/sign-in.test.tsx src/clients/web-app/tests/framework/fake-services.ts \
+	src/clients/wireframe/.gitignore src/clients/wireframe/.prettierignore src/clients/wireframe/README.md \
+	src/clients/wireframe/index.html src/clients/wireframe/package.json src/clients/wireframe/components.json \
+	src/clients/wireframe/src/App.tsx src/clients/wireframe/src/components src/clients/wireframe/src/i18n \
+	src/clients/wireframe/src/index.css src/clients/wireframe/src/lib \
+	src/tests/e2e/BUILD src/tests/e2e/conftest.py
+# RockSolid's folders a project adds no file to.
+FRAMEWORK_FOLDERS = .github/workflows docs/guides src/backend/libs \
+	src/backend/modules/users src/backend/modules/conversations \
+	src/backend/executables/users_api src/backend/executables/conversations_api src/backend/deployables/tests \
+	src/protos/users src/protos/conversations src/clients/web-app/src/auth
 FRAMEWORK_REPOSITORY = https://github.com/eliyaoo32/RockSolid.git
 
 framework-files:
 	@if ! git rev-parse --git-dir > /dev/null 2>&1 || git remote get-url origin 2>/dev/null | grep -q 'eliyaoo32/RockSolid'; then exit 0; fi; \
 	ref=$$(cat framework-ref 2>/dev/null || echo main); \
 	git fetch --quiet --depth=1 $(FRAMEWORK_REPOSITORY) "$$ref" || exit 1; \
-	changed=$$( { git diff --name-only FETCH_HEAD -- $(FRAMEWORK_FILES); \
-		git diff --name-only --diff-filter=MD FETCH_HEAD -- $(FRAMEWORK_FOLDERS); } | sort -u ); \
+	changed=$$( { git diff --name-only --diff-filter=MD FETCH_HEAD -- . $(foreach f,$(PROJECT_FILES),':(exclude)$(f)'); \
+		git diff --name-only --diff-filter=A FETCH_HEAD -- $(FRAMEWORK_FOLDERS); } | sort -u ); \
 	if [ -n "$$changed" ]; then \
 		echo "This project changed RockSolid's files, which change only in RockSolid:"; \
 		echo "$$changed" | sed 's/^/  /'; \
